@@ -1,8 +1,16 @@
-const dialogOverlay = document.getElementById("dialogOverlay");
-const dialogText = document.getElementById("dialogText");
-const dialogNext = document.getElementById("dialogNext");
 const bootOverlay = document.getElementById("bootOverlay");
+const titleOverlay = document.getElementById("titleOverlay");
 const loginScreen = document.getElementById("loginScreen");
+const loginButton = document.getElementById("loginButton");
+const passwordInput = document.getElementById("passwordInput");
+const loginStatus = document.getElementById("loginStatus");
+const playButton = document.getElementById("playButton");
+const continueButton = document.getElementById("continueButton");
+const switchSlotButton = document.getElementById("switchSlotButton");
+const settingsButton = document.getElementById("settingsButton");
+const exitButton = document.getElementById("exitButton");
+const slotLabel = document.getElementById("slotLabel");
+const titleStatus = document.getElementById("titleStatus");
 const desktop = document.getElementById("desktop");
 
 const mailIcon = document.getElementById("mailIcon");
@@ -27,39 +35,20 @@ const clickerWindow = document.getElementById("clickerWindow");
 const earnBar = document.getElementById("earnBar");
 const earnProgress = document.getElementById("earnProgress");
 const earnedAmount = document.getElementById("earnedAmount");
+const totalAmount = document.getElementById("totalAmount");
 const clock = document.getElementById("clock");
+const moneyDisplay = document.getElementById("moneyDisplay");
 
-const dialogLines = [
-  "I boot up windows96.",
-  "Save screen. Login: 123456.",
-  "An email notification pops up from the mail app on the desktop.",
-  "I open it. It's an old friend I haven't talked to in a while...",
-  "\"Check out this game I made.\"",
-  "Inside the email is a suspicious clicker96.zip file.",
-];
-
-let dialogIndex = 0;
 let earnInterval = null;
 let startTime = null;
-let bootState = "boot";
 let popTimeout = null;
+let totalMoney = 0;
+let currentSlot = 1;
+let bootState = "boot";
 
 function updateClock() {
   const now = new Date();
   clock.textContent = now.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
-}
-
-function showDialogLine() {
-  dialogText.textContent = dialogLines[dialogIndex];
-}
-
-function advanceDialog() {
-  dialogIndex += 1;
-  if (dialogIndex >= dialogLines.length) {
-    dialogOverlay.classList.add("hidden");
-    return;
-  }
-  showDialogLine();
 }
 
 function showWindow(windowEl) {
@@ -134,8 +123,12 @@ function startEarning() {
     earnedAmount.textContent = `$${earned.toFixed(2)}`;
 
     if (progress >= 1) {
-      clearInterval(earnInterval);
-      earnInterval = null;
+      totalMoney += 1;
+      updateMoneyDisplay();
+      saveCurrentSlot();
+      startTime = Date.now();
+      earnProgress.style.width = "0%";
+      earnedAmount.textContent = "$0.00";
     }
   }, 1000);
 }
@@ -145,6 +138,10 @@ function nudgeProgressBar() {
     return;
   }
   startTime -= 1000;
+  const rotate = Math.floor(Math.random() * 11) - 5;
+  earnBar.classList.remove("pop");
+  void earnBar.offsetWidth;
+  earnBar.style.setProperty("--pop-rotate", `${rotate}deg`);
   earnBar.classList.add("pop");
   if (popTimeout) {
     clearTimeout(popTimeout);
@@ -155,39 +152,111 @@ function nudgeProgressBar() {
 }
 
 function handleBootAdvance() {
-  if (bootState === "boot") {
-    bootState = "login";
-    loginScreen.classList.remove("hidden");
-    return;
-  }
-
-  if (bootState === "login") {
-    bootState = "done";
-    bootOverlay.classList.add("hidden");
-    desktop.classList.remove("hidden");
-    dialogOverlay.classList.remove("hidden");
-    showDialogLine();
-  }
+  bootState = "done";
+  bootOverlay.classList.add("hidden");
+  titleOverlay.classList.remove("hidden");
 }
 
-function handleBootInput(event) {
-  if (bootState === "done") {
+function openLoginScreen() {
+  titleOverlay.classList.add("hidden");
+  loginScreen.classList.remove("hidden");
+  passwordInput.value = "";
+  loginStatus.textContent = "Enter password to continue.";
+  passwordInput.focus();
+}
+
+function proceedToDesktop() {
+  loginScreen.classList.add("hidden");
+  desktop.classList.remove("hidden");
+}
+
+function updateMoneyDisplay() {
+  const formatted = `$${totalMoney.toFixed(2)}`;
+  moneyDisplay.textContent = formatted;
+  totalAmount.textContent = formatted;
+}
+
+function currentSlotKey() {
+  return `clicker96_save_slot_${currentSlot}`;
+}
+
+function loadSlot() {
+  const raw = localStorage.getItem(currentSlotKey());
+  if (!raw) {
+    totalMoney = 0;
+    updateMoneyDisplay();
+    return false;
+  }
+  const data = JSON.parse(raw);
+  totalMoney = data.totalMoney ?? 0;
+  updateMoneyDisplay();
+  return true;
+}
+
+function saveCurrentSlot() {
+  const data = {
+    totalMoney,
+  };
+  localStorage.setItem(currentSlotKey(), JSON.stringify(data));
+}
+
+function startNewGame() {
+  totalMoney = 0;
+  updateMoneyDisplay();
+  saveCurrentSlot();
+  openLoginScreen();
+}
+
+function continueGame() {
+  const exists = loadSlot();
+  titleStatus.textContent = exists
+    ? "Save loaded."
+    : "No save found. Starting a new one.";
+  if (!exists) {
+    saveCurrentSlot();
+  }
+  openLoginScreen();
+}
+
+function switchSlot() {
+  currentSlot = currentSlot === 3 ? 1 : currentSlot + 1;
+  slotLabel.textContent = String(currentSlot);
+  titleStatus.textContent = "Switched save slot.";
+}
+
+function handleLogin() {
+  const value = passwordInput.value.trim();
+  if (value.length !== 6) {
+    loginStatus.textContent = "Password must be 6 digits.";
     return;
   }
-
-  if (event.type === "keydown") {
-    if (event.key !== " " && event.key !== "Enter") {
-      return;
-    }
-  }
-
-  handleBootAdvance();
+  loginStatus.textContent = "Welcome back.";
+  proceedToDesktop();
 }
 
 bootOverlay.addEventListener("click", handleBootAdvance);
-document.addEventListener("keydown", handleBootInput);
+setTimeout(() => {
+  if (bootState === "boot") {
+    handleBootAdvance();
+  }
+}, 1000);
 
-dialogNext.addEventListener("click", advanceDialog);
+playButton.addEventListener("click", startNewGame);
+continueButton.addEventListener("click", continueGame);
+switchSlotButton.addEventListener("click", switchSlot);
+settingsButton.addEventListener("click", () => {
+  titleStatus.textContent = "Settings coming soon.";
+});
+exitButton.addEventListener("click", () => {
+  titleStatus.textContent = "Exit is disabled in the demo.";
+});
+
+loginButton.addEventListener("click", handleLogin);
+passwordInput.addEventListener("keydown", (event) => {
+  if (event.key === "Enter") {
+    handleLogin();
+  }
+});
 
 mailIcon.addEventListener("click", () => {
   showWindow(mailWindow);
@@ -219,7 +288,9 @@ installerFile.addEventListener("click", () => {
 
 clickerIcon.addEventListener("click", () => {
   showWindow(clickerWindow);
-  startEarning();
+  if (!earnInterval) {
+    startEarning();
+  }
 });
 
 earnBar.addEventListener("click", nudgeProgressBar);
@@ -234,3 +305,4 @@ document.querySelectorAll("[data-close]").forEach((button) => {
 
 updateClock();
 setInterval(updateClock, 1000);
+loadSlot();

@@ -10,27 +10,47 @@
     <div class="boot-overlay" id="bootOverlay" data-state="boot">
       <div class="boot-text">
         <p>windows96 booting...</p>
-        <p class="small">Press any key or click to continue</p>
       </div>
-      <div class="login hidden" id="loginScreen">
+    </div>
+
+    <div class="title-overlay" id="titleOverlay">
+      <div class="title-card">
+        <h1>Clicker96</h1>
+        <p class="small">Save Slot: <span id="slotLabel">1</span> / 3</p>
+        <div class="title-buttons">
+          <button id="playButton">Play</button>
+          <button id="continueButton">Continue</button>
+          <button id="switchSlotButton">Switch Save File</button>
+          <button id="settingsButton">Settings</button>
+          <button id="exitButton">Exit</button>
+        </div>
+        <p class="small" id="titleStatus">Select a save slot to begin.</p>
+      </div>
+    </div>
+
+    <div class="login-screen hidden" id="loginScreen">
+      <div class="login-card">
         <div class="avatar"></div>
         <p class="login-label">User: player01</p>
-        <div class="password-boxes">
-          <span></span>
-          <span></span>
-          <span></span>
-          <span></span>
-          <span></span>
-          <span></span>
-        </div>
-        <p class="small">Enter password •••••• (123456)</p>
+        <input
+          type="password"
+          id="passwordInput"
+          maxlength="6"
+          inputmode="numeric"
+          placeholder="Password (123456)"
+        />
+        <button id="loginButton">Login</button>
+        <p class="small" id="loginStatus">Enter password to continue.</p>
       </div>
     </div>
 
     <main class="desktop hidden" id="desktop">
       <header class="taskbar">
         <span>Windows96</span>
-        <span id="clock"></span>
+        <span class="taskbar-right">
+          <span id="moneyDisplay">$0.00</span>
+          <span id="clock"></span>
+        </span>
       </header>
 
       <section class="icons">
@@ -136,6 +156,7 @@
         </header>
         <div class="window-body">
           <p class="earnings">Earned: <span id="earnedAmount">$0.00</span></p>
+          <p class="earnings">Total: <span id="totalAmount">$0.00</span></p>
           <p class="rate">Rate: $1.00 / 5 minutes ($12.00/hr)</p>
           <div class="progress-bar large clickable" id="earnBar">
             <div class="progress" id="earnProgress"></div>
@@ -158,32 +179,26 @@
                 <strong>Bar Tuner I</strong>
                 <p class="small">Click bar speed +5% (locked)</p>
               </div>
-              <button class="retry" disabled>Buy - $5</button>
+              <button class="retry" disabled>Buy - $1</button>
             </li>
             <li>
               <div>
                 <strong>Auto-Click Harness</strong>
                 <p class="small">Automates small bar nudges (locked)</p>
               </div>
-              <button class="retry" disabled>Buy - $12</button>
+              <button class="retry" disabled>Buy - $3</button>
             </li>
             <li>
               <div>
                 <strong>Multi-Window Buffer</strong>
                 <p class="small">Run 2 Clicker96 windows at once (locked)</p>
               </div>
-              <button class="retry" disabled>Buy - $25</button>
+              <button class="retry" disabled>Buy - $6</button>
             </li>
           </ul>
         </div>
       </div>
 
-      <div class="dialog-overlay hidden" id="dialogOverlay">
-        <div class="dialog">
-          <p id="dialogText"></p>
-          <button id="dialogNext">Next</button>
-        </div>
-      </div>
     </main>
 
     <script src="script.js"></script>
