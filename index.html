@@ -1,0 +1,206 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Clicker96</title>
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <div class="boot-overlay" id="bootOverlay" data-state="boot">
+      <div class="boot-text">
+        <p>windows96 booting...</p>
+      </div>
+    </div>
+
+    <div class="title-overlay" id="titleOverlay">
+      <div class="title-card">
+        <h1>Clicker96</h1>
+        <p class="small">Save Slot: <span id="slotLabel">1</span> / 3</p>
+        <div class="title-buttons">
+          <button id="playButton">Play</button>
+          <button id="continueButton">Continue</button>
+          <button id="switchSlotButton">Switch Save File</button>
+          <button id="settingsButton">Settings</button>
+          <button id="exitButton">Exit</button>
+        </div>
+        <p class="small" id="titleStatus">Select a save slot to begin.</p>
+      </div>
+    </div>
+
+    <div class="login-screen hidden" id="loginScreen">
+      <div class="login-card">
+        <div class="avatar"></div>
+        <p class="login-label">User: player01</p>
+        <input
+          type="password"
+          id="passwordInput"
+          maxlength="6"
+          inputmode="numeric"
+          placeholder="Password (123456)"
+        />
+        <button id="loginButton">Login</button>
+        <p class="small" id="loginStatus">Enter password to continue.</p>
+      </div>
+    </div>
+
+    <main class="desktop hidden" id="desktop">
+      <header class="taskbar">
+        <span>Windows96</span>
+        <span class="taskbar-right">
+          <span id="moneyDisplay">$0.00</span>
+          <span id="clock"></span>
+        </span>
+      </header>
+
+      <section class="icons">
+        <button class="icon" id="mailIcon">
+          <span class="icon-image mail"></span>
+          Mail
+        </button>
+        <button class="icon" id="internetIcon">
+          <span class="icon-image internet"></span>
+          Internet
+        </button>
+        <button class="icon hidden" id="downloadsIcon">
+          <span class="icon-image folder"></span>
+          Downloads
+        </button>
+        <button class="icon hidden" id="clickerIcon">
+          <span class="icon-image clicker"></span>
+          Clicker96
+        </button>
+      </section>
+
+      <div class="window hidden" id="mailWindow">
+        <header class="window-header">
+          <span>Mail - Inbox</span>
+          <button class="close" data-close="mailWindow">✕</button>
+        </header>
+        <div class="window-body">
+          <p class="email-subject">From: <strong>Old Friend</strong></p>
+          <p class="email-body">
+            Check out this game I made. It's a little suspicious, but it works. The zip is attached.
+          </p>
+          <button class="attachment" id="downloadAttachment">📎 clicker96.zip</button>
+        </div>
+      </div>
+
+      <div class="window hidden" id="downloadWindow">
+        <header class="window-header">
+          <span>Downloader</span>
+          <button class="close" data-close="downloadWindow">✕</button>
+        </header>
+        <div class="window-body">
+          <p id="downloadStatus">Preparing download...</p>
+          <div class="progress-bar">
+            <div class="progress" id="downloadProgress"></div>
+          </div>
+          <button class="retry hidden" id="retryDownload">Retry</button>
+        </div>
+      </div>
+
+      <div class="window hidden" id="explorerWindow">
+        <header class="window-header">
+          <span>Windows Explorer - Downloads</span>
+          <button class="close" data-close="explorerWindow">✕</button>
+        </header>
+        <div class="window-body">
+          <ul class="file-list">
+            <li>
+              <button class="file" id="zipFile">
+                <span class="file-icon zip"></span>
+                clicker96.zip
+              </button>
+            </li>
+          </ul>
+        </div>
+      </div>
+
+      <div class="window hidden" id="zipWindow">
+        <header class="window-header">
+          <span>Windows Explorer - clicker96.zip</span>
+          <button class="close" data-close="zipWindow">✕</button>
+        </header>
+        <div class="window-body">
+          <p class="small">Contents:</p>
+          <ul class="file-list">
+            <li>
+              <button class="file" id="installerFile">
+                <span class="file-icon exe"></span>
+                Clicker96Installer.exe
+              </button>
+            </li>
+          </ul>
+        </div>
+      </div>
+
+      <div class="window hidden" id="installerWindow">
+        <header class="window-header">
+          <span>Installer</span>
+          <button class="close" data-close="installerWindow">✕</button>
+        </header>
+        <div class="window-body">
+          <p>Installing Clicker96...</p>
+          <div class="progress-bar">
+            <div class="progress" id="installProgress"></div>
+          </div>
+          <p class="small" id="installStatus">Writing files to desktop.</p>
+        </div>
+      </div>
+
+      <div class="window hidden" id="clickerWindow">
+        <header class="window-header">
+          <span>Clicker96</span>
+          <button class="close" data-close="clickerWindow">✕</button>
+        </header>
+        <div class="window-body">
+          <p class="earnings">Earned: <span id="earnedAmount">$0.00</span></p>
+          <p class="earnings">Total: <span id="totalAmount">$0.00</span></p>
+          <p class="rate">Rate: $1.00 / 5 minutes ($12.00/hr)</p>
+          <div class="progress-bar large clickable" id="earnBar">
+            <div class="progress" id="earnProgress"></div>
+          </div>
+          <p class="small">Click the bar to nudge it faster.</p>
+          <p class="small">No buttons. Just wait for the bar.</p>
+        </div>
+      </div>
+
+      <div class="window hidden" id="internetWindow">
+        <header class="window-header">
+          <span>Internet</span>
+          <button class="close" data-close="internetWindow">✕</button>
+        </header>
+        <div class="window-body">
+          <p class="small">Marketplace - upgrades (coming online)</p>
+          <ul class="upgrade-list">
+            <li>
+              <div>
+                <strong>Bar Tuner I</strong>
+                <p class="small">Click bar speed +5% (locked)</p>
+              </div>
+              <button class="retry" disabled>Buy - $1</button>
+            </li>
+            <li>
+              <div>
+                <strong>Auto-Click Harness</strong>
+                <p class="small">Automates small bar nudges (locked)</p>
+              </div>
+              <button class="retry" disabled>Buy - $3</button>
+            </li>
+            <li>
+              <div>
+                <strong>Multi-Window Buffer</strong>
+                <p class="small">Run 2 Clicker96 windows at once (locked)</p>
+              </div>
+              <button class="retry" disabled>Buy - $6</button>
+            </li>
+          </ul>
+        </div>
+      </div>
+
+    </main>
+
+    <script src="script.js"></script>
+  </body>
+</html>
