@@ -178,28 +178,28 @@
                 <strong>Estimator Tweaks</strong>
                 <p class="small">Improve time estimate accuracy (locked)</p>
               </div>
-              <button class="retry" disabled>Buy - $1</button>
+              <button class="retry upgrade" data-upgrade="estimator" data-cost="1">Buy - $1</button>
             </li>
             <li>
               <div>
                 <strong>Bar Tuner I</strong>
                 <p class="small">Click bar speed +5% (locked)</p>
               </div>
-              <button class="retry" disabled>Buy - $1</button>
+              <button class="retry upgrade" data-upgrade="bar-tuner" data-cost="1">Buy - $1</button>
             </li>
             <li>
               <div>
                 <strong>Auto-Click Harness</strong>
                 <p class="small">Automates small bar nudges (locked)</p>
               </div>
-              <button class="retry" disabled>Buy - $3</button>
+              <button class="retry upgrade" data-upgrade="auto-click" data-cost="3">Buy - $3</button>
             </li>
             <li>
               <div>
                 <strong>Multi-Window Buffer</strong>
                 <p class="small">Run 2 Clicker96 windows at once (locked)</p>
               </div>
-              <button class="retry" disabled>Buy - $6</button>
+              <button class="retry upgrade" data-upgrade="multi-window" data-cost="6">Buy - $6</button>
             </li>
           </ul>
         </div>
@@ -228,7 +228,29 @@
         </div>
       </div>
 
+      <div class="window hidden" id="confirmCloseWindow">
+        <header class="window-header">
+          <span>Close Clicker96?</span>
+          <button class="close" data-close="confirmCloseWindow">✕</button>
+        </header>
+        <div class="window-body">
+          <p class="small">Closing will reset the current progress.</p>
+          <div class="confirm-actions">
+            <button id="confirmCloseYes">Yes</button>
+            <button id="confirmCloseNo">No</button>
+          </div>
+        </div>
+      </div>
+
     </main>
+
+    <div class="combo-meter hidden" id="comboMeter">
+      <div class="combo-label">Combo</div>
+      <div class="combo-value" id="comboValue">1.00x</div>
+      <div class="combo-bar">
+        <div class="combo-fill" id="comboFill"></div>
+      </div>
+    </div>
 
     <div class="toast hidden" id="toast">
       <div class="toast-title" id="toastTitle"></div>

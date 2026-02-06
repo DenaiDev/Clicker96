@@ -268,6 +268,21 @@ body {
   cursor: pointer;
 }
 
+.confirm-actions {
+  display: flex;
+  gap: 0.5rem;
+  justify-content: flex-end;
+  margin-top: 1rem;
+}
+
+.confirm-actions button {
+  background: #3d4c6a;
+  border: none;
+  color: #e8e8f0;
+  padding: 0.4rem 0.8rem;
+  cursor: pointer;
+}
+
 .email-body {
   margin-top: 0.5rem;
 }
@@ -377,6 +392,66 @@ body {
 
 .toast.hidden {
   display: none;
+}
+
+.combo-meter {
+  position: fixed;
+  right: 1rem;
+  top: 120px;
+  background: #1a2233;
+  border: 2px solid #2f3f5e;
+  padding: 0.6rem 0.8rem;
+  width: 140px;
+  color: #e8e8f0;
+  z-index: 7;
+}
+
+.combo-label {
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08rem;
+  opacity: 0.7;
+}
+
+.combo-value {
+  font-size: 1.1rem;
+  font-weight: bold;
+  margin: 0.3rem 0 0.5rem;
+}
+
+.combo-bar {
+  height: 6px;
+  background: #0d1119;
+  border: 1px solid #334a6b;
+}
+
+.combo-fill {
+  height: 100%;
+  width: 0%;
+  background: linear-gradient(90deg, #35a9ff, #7efff5);
+  transition: width 0.1s linear;
+}
+
+.shake {
+  animation: shake 0.15s ease;
+}
+
+@keyframes shake {
+  0% {
+    transform: translateX(0);
+  }
+  25% {
+    transform: translateX(-2px);
+  }
+  50% {
+    transform: translateX(2px);
+  }
+  75% {
+    transform: translateX(-2px);
+  }
+  100% {
+    transform: translateX(0);
+  }
 }
 
 .hidden {

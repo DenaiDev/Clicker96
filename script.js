@@ -51,6 +51,12 @@ const estimateAccuracy = document.getElementById("estimateAccuracy");
 const toast = document.getElementById("toast");
 const toastTitle = document.getElementById("toastTitle");
 const toastBody = document.getElementById("toastBody");
+const confirmCloseWindow = document.getElementById("confirmCloseWindow");
+const confirmCloseYes = document.getElementById("confirmCloseYes");
+const confirmCloseNo = document.getElementById("confirmCloseNo");
+const comboMeter = document.getElementById("comboMeter");
+const comboValue = document.getElementById("comboValue");
+const comboFill = document.getElementById("comboFill");
 
 let earnInterval = null;
 let startTime = null;
@@ -66,6 +72,19 @@ let lastToastTimeout = null;
 let hasEmail = false;
 let emailTimer = null;
 let windowZ = 10;
+let comboMultiplier = 1;
+let comboClicks = 0;
+let comboTimeout = null;
+let comboDrainInterval = null;
+let comboRemaining = 10000;
+let mailStage = 0;
+let totalClicks = 0;
+let upgrades = {
+  estimator: 0,
+  barTuner: 0,
+  autoClick: false,
+  multiWindow: false,
+};
 
 const gridSize = { x: 88, y: 92 };
 const accuracyLevels = ["low", "medium", "high", "precise"];
@@ -196,6 +215,7 @@ function startEarning() {
       startTime = Date.now();
       earnProgress.style.width = "0%";
       maybeAward("first-dollar", "First Dollar", "Earned your first $1.");
+      handleFriendFollowup();
     }
   }, 1000);
 }
@@ -204,8 +224,8 @@ function updateEstimate(duration, elapsed) {
   const remaining = Math.max(duration - elapsed, 0);
   const accuracyIndex = Math.min(getEstimateLevel(), accuracyLevels.length - 1);
   const accuracy = accuracyLevels[accuracyIndex];
-  const noise = 1 + (accuracyIndex === 0 ? 0.25 : accuracyIndex === 1 ? 0.15 : accuracyIndex === 2 ? 0.08 : 0.03);
-  const noisyRemaining = remaining * noise;
+  const baseNoise = accuracyIndex === 0 ? 0.25 : accuracyIndex === 1 ? 0.15 : accuracyIndex === 2 ? 0.08 : 0.03;
+  const noisyRemaining = remaining * (1 + baseNoise);
   const minutes = Math.floor(noisyRemaining / 60000);
   const seconds = Math.floor((noisyRemaining % 60000) / 1000);
   timeEstimate.textContent = `~${minutes}m ${seconds}s`;
@@ -213,14 +233,16 @@ function updateEstimate(duration, elapsed) {
 }
 
 function getEstimateLevel() {
-  return 0;
+  return upgrades.estimator;
 }
 
 function nudgeProgressBar() {
   if (!startTime) {
     return;
   }
-  startTime -= 1000;
+  totalClicks += 1;
+  updateCombo();
+  startTime -= 1000 * comboMultiplier;
   const rotate = Math.floor(Math.random() * 7) - 3;
   earnBar.classList.remove("pop");
   void earnBar.offsetWidth;
@@ -232,6 +254,43 @@ function nudgeProgressBar() {
   popTimeout = setTimeout(() => {
     earnBar.classList.remove("pop");
   }, 200);
+  comboValue.classList.remove("shake");
+  void comboValue.offsetWidth;
+  comboValue.classList.add("shake");
+  maybeAward("clicker", "Click Starter", "You started clicking.");
+}
+
+function updateCombo() {
+  comboClicks = Math.min(comboClicks + 1, 100);
+  comboMultiplier = Math.min(1 + comboClicks * 0.01, 2);
+  comboRemaining = 10000;
+  comboMeter.classList.remove("hidden");
+  comboValue.textContent = `${comboMultiplier.toFixed(2)}x`;
+  comboFill.style.width = "100%";
+  if (comboDrainInterval) {
+    clearInterval(comboDrainInterval);
+  }
+  comboDrainInterval = setInterval(() => {
+    comboRemaining -= 100;
+    const percentage = Math.max(comboRemaining / 10000, 0);
+    comboFill.style.width = `${percentage * 100}%`;
+    if (comboRemaining <= 0) {
+      clearInterval(comboDrainInterval);
+      resetCombo();
+    }
+  }, 100);
+  if (comboTimeout) {
+    clearTimeout(comboTimeout);
+  }
+  comboTimeout = setTimeout(resetCombo, 10000);
+}
+
+function resetCombo() {
+  comboClicks = 0;
+  comboMultiplier = 1;
+  comboRemaining = 10000;
+  comboMeter.classList.add("hidden");
+  comboFill.style.width = "0%";
 }
 
 function handleBootAdvance() {
@@ -257,6 +316,7 @@ function proceedToDesktop() {
 function updateMoneyDisplay() {
   const formatted = `$${totalMoney.toFixed(2)}`;
   moneyDisplay.textContent = formatted;
+  refreshUpgrades();
 }
 
 function currentSlotKey() {
@@ -278,6 +338,12 @@ function loadSlot() {
     downloads = [];
     trash = [];
     achievements = [];
+    upgrades = {
+      estimator: 0,
+      barTuner: 0,
+      autoClick: false,
+      multiWindow: false,
+    };
     updateMoneyDisplay();
     renderDownloads();
     renderTrash();
@@ -287,6 +353,8 @@ function loadSlot() {
   downloads = data.downloads ?? [];
   trash = data.trash ?? [];
   achievements = data.achievements ?? [];
+  upgrades = data.upgrades ?? upgrades;
+  mailStage = data.mailStage ?? 0;
   updateMoneyDisplay();
   renderDownloads();
   renderTrash();
@@ -299,6 +367,8 @@ function saveCurrentSlot() {
     downloads,
     trash,
     achievements,
+    upgrades,
+    mailStage,
   };
   localStorage.setItem(currentSlotKey(), JSON.stringify(data));
   refreshTitleAction();
@@ -311,6 +381,13 @@ function startGameAction() {
     downloads = [];
     trash = [];
     achievements = [];
+    upgrades = {
+      estimator: 0,
+      barTuner: 0,
+      autoClick: false,
+      multiWindow: false,
+    };
+    mailStage = 0;
     updateMoneyDisplay();
     saveCurrentSlot();
   } else {
@@ -530,9 +607,6 @@ function maybeAward(id, title, body) {
 }
 
 function scheduleEmail() {
-  if (hasEmail) {
-    return;
-  }
   mailBadge.classList.add("hidden");
   downloadAttachment.classList.add("hidden");
   mailBody.textContent = "Inbox empty. No new mail yet.";
@@ -540,13 +614,66 @@ function scheduleEmail() {
     clearTimeout(emailTimer);
   }
   emailTimer = setTimeout(() => {
-    hasEmail = true;
-    mailBadge.classList.remove("hidden");
-    downloadAttachment.classList.remove("hidden");
-    mailBody.textContent =
-      "Check out this game I made. It's a little suspicious, but it works. The zip is attached.";
-    showToast("New Mail", "Old Friend sent clicker96.zip");
+    if (mailStage < 1) {
+      mailStage = 1;
+      hasEmail = true;
+      mailBadge.classList.remove("hidden");
+      downloadAttachment.classList.remove("hidden");
+      mailBody.textContent =
+        "Check out this game I made. It's a little suspicious, but it works. The zip is attached.";
+      showToast("New Mail", "Old Friend sent clicker96.zip");
+      saveCurrentSlot();
+    }
   }, 5000);
+}
+
+function handleFriendFollowup() {
+  if (mailStage >= 2) {
+    return;
+  }
+  mailStage = 2;
+  hasEmail = true;
+  mailBadge.classList.remove("hidden");
+  downloadAttachment.classList.add("hidden");
+  mailBody.textContent = "What do you think? Pretty cool right?";
+  showToast("New Mail", "Old Friend: Pretty cool right?");
+  saveCurrentSlot();
+}
+
+function refreshUpgrades() {
+  document.querySelectorAll(".upgrade").forEach((button) => {
+    const cost = Number(button.dataset.cost);
+    button.disabled = totalMoney < cost;
+  });
+}
+
+function applyUpgrade(key) {
+  if (key === "estimator") {
+    upgrades.estimator = Math.min(upgrades.estimator + 1, 3);
+  }
+  if (key === "bar-tuner") {
+    upgrades.barTuner += 1;
+  }
+  if (key === "auto-click") {
+    upgrades.autoClick = true;
+  }
+  if (key === "multi-window") {
+    upgrades.multiWindow = true;
+  }
+  saveCurrentSlot();
+  showToast("Upgrade", "Upgrade installed.");
+}
+
+function handleUpgradeClick(event) {
+  const button = event.currentTarget;
+  const cost = Number(button.dataset.cost);
+  if (totalMoney < cost) {
+    return;
+  }
+  totalMoney -= cost;
+  updateMoneyDisplay();
+  applyUpgrade(button.dataset.upgrade);
+  button.disabled = true;
 }
 
 bootOverlay.addEventListener("click", handleBootAdvance);
@@ -605,6 +732,10 @@ clickerIcon.addEventListener("click", () => {
   }
 });
 
+document.querySelectorAll(".upgrade").forEach((button) => {
+  button.addEventListener("click", handleUpgradeClick);
+});
+
 earnBar.addEventListener("click", nudgeProgressBar);
 
 deleteSaveButton.addEventListener("click", deleteSaveData);
@@ -618,15 +749,41 @@ trashIcon.addEventListener("contextmenu", (event) => {
   emptyTrash();
 });
 
+confirmCloseYes.addEventListener("click", () => {
+  hideWindow(confirmCloseWindow);
+  hideWindow(clickerWindow);
+  if (earnInterval) {
+    clearInterval(earnInterval);
+    earnInterval = null;
+  }
+  startTime = null;
+  earnProgress.style.width = "0%";
+  resetCombo();
+});
+
+confirmCloseNo.addEventListener("click", () => {
+  hideWindow(confirmCloseWindow);
+});
+
 document.querySelectorAll("[data-close]").forEach((button) => {
   button.addEventListener("click", (event) => {
     const targetId = event.currentTarget.dataset.close;
     const windowEl = document.getElementById(targetId);
+    if (targetId === "clickerWindow") {
+      showWindow(confirmCloseWindow);
+      return;
+    }
     hideWindow(windowEl);
     if (targetId === "settingsWindow") {
       titleOverlay.classList.remove("hidden");
       desktop.classList.add("hidden");
     }
+  });
+});
+
+document.querySelectorAll(".window").forEach((windowEl) => {
+  windowEl.addEventListener("mousedown", () => {
+    focusWindow(windowEl);
   });
 });
 
@@ -637,3 +794,4 @@ loadSlot();
 setupWindowDragging();
 setupIconDragging();
 renderTaskbarWindows();
+refreshUpgrades();
