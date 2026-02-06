@@ -1,0 +1,5 @@
+# OS files
+.DS_Store
+
+# Playwright/screenshots or other generated artifacts
+artifacts/
