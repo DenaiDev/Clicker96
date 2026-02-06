@@ -66,6 +66,7 @@ let achievements = [];
 let lastToastTimeout = null;
 let hasEmail = false;
 let emailTimer = null;
+let windowZ = 10;
 
 const gridSize = { x: 88, y: 92 };
 const accuracyLevels = ["low", "medium", "high", "precise"];
@@ -78,6 +79,7 @@ function updateClock() {
 function showWindow(windowEl) {
   windowEl.classList.remove("hidden");
   openedWindows.add(windowEl.id);
+  focusWindow(windowEl);
   renderTaskbarWindows();
 }
 
@@ -99,9 +101,16 @@ function renderTaskbarWindows() {
   });
   const displayCount = Math.min(labels.length, 9);
   for (let i = 0; i < displayCount; i += 1) {
-    const badge = document.createElement("div");
+    const badge = document.createElement("button");
     badge.className = "taskbar-window";
     badge.textContent = labels[i];
+    badge.type = "button";
+    badge.addEventListener("click", () => {
+      const windowEl = document.getElementById(windows[i]);
+      if (windowEl) {
+        showWindow(windowEl);
+      }
+    });
     taskbarWindows.appendChild(badge);
   }
   if (labels.length > 9) {
@@ -111,6 +120,11 @@ function renderTaskbarWindows() {
     extra.textContent = hiddenCount > 99 ? "99+" : String(hiddenCount);
     taskbarWindows.appendChild(extra);
   }
+}
+
+function focusWindow(windowEl) {
+  windowZ += 1;
+  windowEl.style.zIndex = String(windowZ);
 }
 
 function startDownloadSequence() {
@@ -422,6 +436,7 @@ function setupWindowDragging() {
       if (!windowEl) {
         return;
       }
+      focusWindow(windowEl);
       const rect = windowEl.getBoundingClientRect();
       const offsetX = event.clientX - rect.left;
       const offsetY = event.clientY - rect.top;
@@ -480,10 +495,14 @@ function setupIconDragging() {
 }
 
 function snapIcon(icon) {
-  const left = parseFloat(icon.style.left) || 0;
-  const top = parseFloat(icon.style.top) || 0;
-  const gridX = Math.max(0, Math.round(left / gridSize.x));
-  const gridY = Math.max(0, Math.round(top / gridSize.y));
+  const left = parseFloat(icon.style.left);
+  const top = parseFloat(icon.style.top);
+  const gridX = Number.isFinite(left)
+    ? Math.max(0, Math.round(left / gridSize.x))
+    : Number(icon.dataset.gridX || 0);
+  const gridY = Number.isFinite(top)
+    ? Math.max(0, Math.round(top / gridSize.y))
+    : Number(icon.dataset.gridY || 0);
   icon.dataset.gridX = String(gridX);
   icon.dataset.gridY = String(gridY);
   icon.style.left = `${gridX * gridSize.x}px`;

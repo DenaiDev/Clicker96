@@ -149,10 +149,15 @@ body {
   padding: 0.15rem 0.4rem;
   font-size: 0.75rem;
   border-radius: 4px;
+  cursor: pointer;
 }
 
 .taskbar-window.more {
   background: #2e3b54;
+}
+
+.taskbar-window:hover {
+  background: #2a3852;
 }
 
 .taskbar-right {
