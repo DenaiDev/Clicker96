@@ -16,7 +16,9 @@ const mailIcon = document.getElementById("mailIcon");
 const mailBadge = document.getElementById("mailBadge");
 const mailWindow = document.getElementById("mailWindow");
 const mailBody = document.getElementById("mailBody");
+const mailSender = document.getElementById("mailSender");
 const downloadAttachment = document.getElementById("downloadAttachment");
+const houseAttachment = document.getElementById("houseAttachment");
 const downloadWindow = document.getElementById("downloadWindow");
 const downloadStatus = document.getElementById("downloadStatus");
 const downloadProgress = document.getElementById("downloadProgress");
@@ -47,7 +49,6 @@ const trashList = document.getElementById("trashList");
 const trashStatus = document.getElementById("trashStatus");
 const taskbarWindows = document.getElementById("taskbarWindows");
 const timeEstimate = document.getElementById("timeEstimate");
-const estimateAccuracy = document.getElementById("estimateAccuracy");
 const toast = document.getElementById("toast");
 const toastTitle = document.getElementById("toastTitle");
 const toastBody = document.getElementById("toastBody");
@@ -57,6 +58,17 @@ const confirmCloseNo = document.getElementById("confirmCloseNo");
 const comboMeter = document.getElementById("comboMeter");
 const comboValue = document.getElementById("comboValue");
 const comboFill = document.getElementById("comboFill");
+const houseWindow = document.getElementById("houseWindow");
+const betInput = document.getElementById("betInput");
+const betCoinflip = document.getElementById("betCoinflip");
+const betBlackjack = document.getElementById("betBlackjack");
+const betRoulette = document.getElementById("betRoulette");
+const houseStatus = document.getElementById("houseStatus");
+const iconsContainer = document.querySelector(".icons");
+const levelEstimator = document.getElementById("level-estimator");
+const levelBarTuner = document.getElementById("level-bar-tuner");
+const levelAutoClick = document.getElementById("level-auto-click");
+const levelMultiWindow = document.getElementById("level-multi-window");
 
 let earnInterval = null;
 let startTime = null;
@@ -79,15 +91,29 @@ let comboDrainInterval = null;
 let comboRemaining = 10000;
 let mailStage = 0;
 let totalClicks = 0;
+let blackjackPending = 0;
 let upgrades = {
   estimator: 0,
   barTuner: 0,
-  autoClick: false,
-  multiWindow: false,
+  autoClick: 0,
+  multiWindow: 0,
 };
 
 const gridSize = { x: 88, y: 92 };
 const accuracyLevels = ["low", "medium", "high", "precise"];
+const iconDefaults = {
+  mailIcon: { x: 0, y: 0 },
+  internetIcon: { x: 0, y: 1 },
+  downloadsIcon: { x: 0, y: 2 },
+  clickerIcon: { x: 0, y: 3 },
+  trashIcon: { x: 0, y: 4 },
+};
+const upgradeConfigs = {
+  estimator: { max: 3, base: 1, scale: 2, levelEl: levelEstimator },
+  "bar-tuner": { max: null, base: 1, scale: 1.4, levelEl: levelBarTuner },
+  "auto-click": { max: 5, base: 3, scale: 1.8, levelEl: levelAutoClick },
+  "multi-window": { max: null, base: 6, scale: 1.6, levelEl: levelMultiWindow },
+};
 
 function updateClock() {
   const now = new Date();
@@ -189,6 +215,7 @@ function startInstallSequence() {
     installProgress.style.width = "100%";
     installStatus.textContent = "Install complete. Clicker96 is ready.";
     clickerIcon.classList.remove("hidden");
+    ensureIconPlacement(clickerIcon);
     maybeAward("installer", "Installer", "Clicker96 installed.");
   }, 1400);
 }
@@ -202,6 +229,9 @@ function startEarning() {
   }
 
   earnInterval = setInterval(() => {
+    if (upgrades.autoClick > 0) {
+      startTime -= upgrades.autoClick * 200;
+    }
     const elapsed = Date.now() - startTime;
     const progress = Math.min(elapsed / duration, 1);
 
@@ -216,6 +246,7 @@ function startEarning() {
       earnProgress.style.width = "0%";
       maybeAward("first-dollar", "First Dollar", "Earned your first $1.");
       handleFriendFollowup();
+      handleHouseMail();
     }
   }, 1000);
 }
@@ -223,13 +254,13 @@ function startEarning() {
 function updateEstimate(duration, elapsed) {
   const remaining = Math.max(duration - elapsed, 0);
   const accuracyIndex = Math.min(getEstimateLevel(), accuracyLevels.length - 1);
-  const accuracy = accuracyLevels[accuracyIndex];
-  const baseNoise = accuracyIndex === 0 ? 0.25 : accuracyIndex === 1 ? 0.15 : accuracyIndex === 2 ? 0.08 : 0.03;
-  const noisyRemaining = remaining * (1 + baseNoise);
+  const baseNoise =
+    accuracyIndex === 0 ? 0.35 : accuracyIndex === 1 ? 0.2 : accuracyIndex === 2 ? 0.12 : 0.05;
+  const variance = (Math.random() * 2 - 1) * baseNoise;
+  const noisyRemaining = remaining * (1 + variance);
   const minutes = Math.floor(noisyRemaining / 60000);
   const seconds = Math.floor((noisyRemaining % 60000) / 1000);
   timeEstimate.textContent = `~${minutes}m ${seconds}s`;
-  estimateAccuracy.textContent = accuracy;
 }
 
 function getEstimateLevel() {
@@ -242,7 +273,8 @@ function nudgeProgressBar() {
   }
   totalClicks += 1;
   updateCombo();
-  startTime -= 1000 * comboMultiplier;
+  const tunerBoost = 1 + upgrades.barTuner * 0.05;
+  startTime -= 1000 * comboMultiplier * tunerBoost;
   const rotate = Math.floor(Math.random() * 7) - 3;
   earnBar.classList.remove("pop");
   void earnBar.offsetWidth;
@@ -341,8 +373,8 @@ function loadSlot() {
     upgrades = {
       estimator: 0,
       barTuner: 0,
-      autoClick: false,
-      multiWindow: false,
+      autoClick: 0,
+      multiWindow: 0,
     };
     updateMoneyDisplay();
     renderDownloads();
@@ -358,6 +390,11 @@ function loadSlot() {
   updateMoneyDisplay();
   renderDownloads();
   renderTrash();
+  if (downloads.length > 0) {
+    downloadsIcon.classList.remove("hidden");
+    ensureIconPlacement(downloadsIcon);
+  }
+  setMailContent();
   return true;
 }
 
@@ -384,10 +421,11 @@ function startGameAction() {
     upgrades = {
       estimator: 0,
       barTuner: 0,
-      autoClick: false,
-      multiWindow: false,
+      autoClick: 0,
+      multiWindow: 0,
     };
     mailStage = 0;
+    downloadsIcon.classList.add("hidden");
     updateMoneyDisplay();
     saveCurrentSlot();
   } else {
@@ -425,7 +463,10 @@ function addDownloadFile() {
   const count = downloads.length + 1;
   const name = count === 1 ? "clicker96.zip" : `clicker96 (${count}).zip`;
   downloads.push({ id: Date.now(), name });
-  downloadsIcon.classList.remove("hidden");
+  if (downloadsIcon.classList.contains("hidden")) {
+    downloadsIcon.classList.remove("hidden");
+    ensureIconPlacement(downloadsIcon);
+  }
   renderDownloads();
   saveCurrentSlot();
 }
@@ -538,8 +579,9 @@ function setupIconDragging() {
   icons.forEach((icon, index) => {
     icon.style.position = "absolute";
     if (!icon.dataset.gridX) {
-      const column = 0;
-      const row = index;
+      const defaults = iconDefaults[icon.id];
+      const column = defaults ? defaults.x : 0;
+      const row = defaults ? defaults.y : index;
       icon.dataset.gridX = String(column);
       icon.dataset.gridY = String(row);
     }
@@ -579,10 +621,95 @@ function snapIcon(icon) {
   const gridY = Number.isFinite(top)
     ? Math.max(0, Math.round(top / gridSize.y))
     : Number(icon.dataset.gridY || 0);
-  icon.dataset.gridX = String(gridX);
-  icon.dataset.gridY = String(gridY);
-  icon.style.left = `${gridX * gridSize.x}px`;
-  icon.style.top = `${gridY * gridSize.y}px`;
+  placeIcon(icon, gridX, gridY, true);
+}
+
+function getMaxRows() {
+  if (!iconsContainer) {
+    return 6;
+  }
+  return Math.max(1, Math.floor(iconsContainer.clientHeight / gridSize.y) - 1);
+}
+
+function getMaxCols() {
+  if (!iconsContainer) {
+    return 3;
+  }
+  return Math.max(1, Math.floor(iconsContainer.clientWidth / gridSize.x) - 1);
+}
+
+function getKey(x, y) {
+  return `${x},${y}`;
+}
+
+function buildOccupancy(excludeIcon) {
+  const map = new Map();
+  document.querySelectorAll(".icon").forEach((icon) => {
+    if (icon === excludeIcon) {
+      return;
+    }
+    if (icon.classList.contains("hidden")) {
+      return;
+    }
+    const x = Number(icon.dataset.gridX || 0);
+    const y = Number(icon.dataset.gridY || 0);
+    map.set(getKey(x, y), icon);
+  });
+  return map;
+}
+
+function findNextFree(startX, startY, occupancy) {
+  const maxCols = getMaxCols();
+  const maxRows = getMaxRows();
+  for (let x = startX; x <= maxCols; x += 1) {
+    for (let y = startY; y <= maxRows; y += 1) {
+      if (!occupancy.has(getKey(x, y))) {
+        return { x, y };
+      }
+    }
+    startY = 0;
+  }
+  return { x: maxCols + 1, y: 0 };
+}
+
+function setIconPosition(icon, x, y) {
+  icon.dataset.gridX = String(x);
+  icon.dataset.gridY = String(y);
+  icon.style.left = `${x * gridSize.x}px`;
+  icon.style.top = `${y * gridSize.y}px`;
+}
+
+function placeIcon(icon, gridX, gridY, allowPush) {
+  const occupancy = buildOccupancy(icon);
+  const key = getKey(gridX, gridY);
+  if (occupancy.has(key)) {
+    if (allowPush) {
+      const occupant = occupancy.get(key);
+      const next = findNextFree(gridX, gridY + 1, occupancy);
+      setIconPosition(occupant, next.x, next.y);
+      occupancy.delete(key);
+      occupancy.set(getKey(next.x, next.y), occupant);
+      setIconPosition(icon, gridX, gridY);
+      return;
+    }
+    const next = findNextFree(gridX, gridY + 1, occupancy);
+    setIconPosition(icon, next.x, next.y);
+    return;
+  }
+  setIconPosition(icon, gridX, gridY);
+}
+
+function ensureIconPlacement(icon) {
+  const defaults = iconDefaults[icon.id] || { x: 0, y: 0 };
+  placeIcon(icon, defaults.x, defaults.y, false);
+}
+
+function initIconGrid() {
+  document.querySelectorAll(".icon").forEach((icon) => {
+    if (!icon.classList.contains("hidden")) {
+      ensureIconPlacement(icon);
+    }
+  });
 }
 
 function showToast(title, body) {
@@ -607,9 +734,14 @@ function maybeAward(id, title, body) {
 }
 
 function scheduleEmail() {
+  if (mailStage >= 1) {
+    setMailContent();
+    return;
+  }
   mailBadge.classList.add("hidden");
-  downloadAttachment.classList.add("hidden");
   mailBody.textContent = "Inbox empty. No new mail yet.";
+  downloadAttachment.classList.add("hidden");
+  houseAttachment.classList.add("hidden");
   if (emailTimer) {
     clearTimeout(emailTimer);
   }
@@ -618,9 +750,7 @@ function scheduleEmail() {
       mailStage = 1;
       hasEmail = true;
       mailBadge.classList.remove("hidden");
-      downloadAttachment.classList.remove("hidden");
-      mailBody.textContent =
-        "Check out this game I made. It's a little suspicious, but it works. The zip is attached.";
+      setMailContent();
       showToast("New Mail", "Old Friend sent clicker96.zip");
       saveCurrentSlot();
     }
@@ -634,16 +764,68 @@ function handleFriendFollowup() {
   mailStage = 2;
   hasEmail = true;
   mailBadge.classList.remove("hidden");
-  downloadAttachment.classList.add("hidden");
-  mailBody.textContent = "What do you think? Pretty cool right?";
+  setMailContent();
   showToast("New Mail", "Old Friend: Pretty cool right?");
   saveCurrentSlot();
 }
 
+function handleHouseMail() {
+  if (mailStage >= 3 || totalMoney < 5) {
+    return;
+  }
+  mailStage = 3;
+  hasEmail = true;
+  mailBadge.classList.remove("hidden");
+  setMailContent();
+  showToast("New Mail", "The House is inviting you in.");
+  saveCurrentSlot();
+}
+
+function setMailContent() {
+  if (mailStage === 0) {
+    mailSender.textContent = "System";
+    mailBody.textContent = "Inbox empty. No new mail yet.";
+    downloadAttachment.classList.add("hidden");
+    houseAttachment.classList.add("hidden");
+    return;
+  }
+  if (mailStage === 1) {
+    mailSender.textContent = "Old Friend";
+    mailBody.textContent =
+      "Check out this game I made. It's a little suspicious, but it works. The zip is attached.";
+    downloadAttachment.classList.remove("hidden");
+    houseAttachment.classList.add("hidden");
+    return;
+  }
+  if (mailStage === 2) {
+    mailSender.textContent = "Old Friend";
+    mailBody.textContent = "What do you think? Pretty cool right?";
+    downloadAttachment.classList.add("hidden");
+    houseAttachment.classList.add("hidden");
+    return;
+  }
+  if (mailStage >= 3) {
+    mailSender.textContent = "The House";
+    mailBody.textContent =
+      "The House is open. Care to test your luck? Attached is a new game.";
+    downloadAttachment.classList.add("hidden");
+    houseAttachment.classList.remove("hidden");
+  }
+}
+
 function refreshUpgrades() {
   document.querySelectorAll(".upgrade").forEach((button) => {
-    const cost = Number(button.dataset.cost);
-    button.disabled = totalMoney < cost;
+    const key = button.dataset.upgrade;
+    const config = upgradeConfigs[key];
+    const level = getUpgradeLevel(key);
+    const max = config.max;
+    const cost = getUpgradeCost(key);
+    button.dataset.cost = String(cost);
+    button.textContent = `Buy - $${cost}`;
+    const isMaxed = max !== null && level >= max;
+    button.disabled = isMaxed || totalMoney < cost;
+    const levelText = max === null ? `LVL ${level}/∞` : `LVL ${level}/${max}`;
+    config.levelEl.textContent = levelText;
   });
 }
 
@@ -655,10 +837,10 @@ function applyUpgrade(key) {
     upgrades.barTuner += 1;
   }
   if (key === "auto-click") {
-    upgrades.autoClick = true;
+    upgrades.autoClick = Math.min(upgrades.autoClick + 1, 5);
   }
   if (key === "multi-window") {
-    upgrades.multiWindow = true;
+    upgrades.multiWindow += 1;
   }
   saveCurrentSlot();
   showToast("Upgrade", "Upgrade installed.");
@@ -666,14 +848,89 @@ function applyUpgrade(key) {
 
 function handleUpgradeClick(event) {
   const button = event.currentTarget;
-  const cost = Number(button.dataset.cost);
+  const cost = getUpgradeCost(button.dataset.upgrade);
+  const config = upgradeConfigs[button.dataset.upgrade];
+  const level = getUpgradeLevel(button.dataset.upgrade);
+  if (config.max !== null && level >= config.max) {
+    return;
+  }
   if (totalMoney < cost) {
     return;
   }
   totalMoney -= cost;
   updateMoneyDisplay();
   applyUpgrade(button.dataset.upgrade);
-  button.disabled = true;
+}
+
+function getUpgradeLevel(key) {
+  if (key === "estimator") {
+    return upgrades.estimator;
+  }
+  if (key === "bar-tuner") {
+    return upgrades.barTuner;
+  }
+  if (key === "auto-click") {
+    return upgrades.autoClick;
+  }
+  if (key === "multi-window") {
+    return upgrades.multiWindow;
+  }
+  return 0;
+}
+
+function getUpgradeCost(key) {
+  const config = upgradeConfigs[key];
+  const level = getUpgradeLevel(key);
+  return Math.ceil(config.base * Math.pow(config.scale, level));
+}
+
+function getBetAmount() {
+  const raw = Number(betInput.value);
+  if (!Number.isFinite(raw) || raw <= 0) {
+    houseStatus.textContent = "Enter a valid bet amount.";
+    return null;
+  }
+  if (raw > totalMoney) {
+    houseStatus.textContent = "Not enough funds.";
+    return null;
+  }
+  return Math.floor(raw);
+}
+
+function resolveSimpleBet(label, winChance = 0.5) {
+  const bet = getBetAmount();
+  if (!bet) {
+    return;
+  }
+  blackjackPending = 0;
+  const win = Math.random() < winChance;
+  totalMoney += win ? bet : -bet;
+  updateMoneyDisplay();
+  saveCurrentSlot();
+  houseStatus.textContent = win ? `${label}: You won $${bet}.` : `${label}: You lost $${bet}.`;
+}
+
+function resolveBlackjack() {
+  let bet = blackjackPending || getBetAmount();
+  if (!bet) {
+    return;
+  }
+  if (bet > totalMoney) {
+    houseStatus.textContent = "Not enough funds for the double.";
+    blackjackPending = 0;
+    return;
+  }
+  const win = Math.random() < 0.5;
+  totalMoney += win ? bet : -bet;
+  updateMoneyDisplay();
+  saveCurrentSlot();
+  if (win) {
+    blackjackPending = bet * 2;
+    houseStatus.textContent = `Blackjack win! Play again to double to $${blackjackPending}.`;
+  } else {
+    blackjackPending = 0;
+    houseStatus.textContent = `Blackjack lost $${bet}.`;
+  }
 }
 
 bootOverlay.addEventListener("click", handleBootAdvance);
@@ -709,6 +966,10 @@ downloadAttachment.addEventListener("click", () => {
   startDownloadSequence();
 });
 
+houseAttachment.addEventListener("click", () => {
+  showWindow(houseWindow);
+});
+
 retryDownload.addEventListener("click", () => {
   retryDownloadSequence();
 });
@@ -723,6 +984,18 @@ internetIcon.addEventListener("click", () => {
 
 installerFile.addEventListener("click", () => {
   startInstallSequence();
+});
+
+betCoinflip.addEventListener("click", () => {
+  resolveSimpleBet("50/50");
+});
+
+betRoulette.addEventListener("click", () => {
+  resolveSimpleBet("Red/Black");
+});
+
+betBlackjack.addEventListener("click", () => {
+  resolveBlackjack();
 });
 
 clickerIcon.addEventListener("click", () => {
@@ -793,5 +1066,6 @@ refreshTitleAction();
 loadSlot();
 setupWindowDragging();
 setupIconDragging();
+initIconGrid();
 renderTaskbarWindows();
 refreshUpgrades();

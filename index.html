@@ -84,11 +84,12 @@
           <button class="close" data-close="mailWindow">✕</button>
         </header>
         <div class="window-body">
-          <p class="email-subject">From: <strong>Old Friend</strong></p>
+          <p class="email-subject">From: <strong id="mailSender">Old Friend</strong></p>
           <p class="email-body" id="mailBody">
             Check out this game I made. It's a little suspicious, but it works. The zip is attached.
           </p>
           <button class="attachment" id="downloadAttachment">📎 clicker96.zip</button>
+          <button class="attachment hidden" id="houseAttachment">🎲 TheHouse.exe</button>
         </div>
       </div>
 
@@ -157,7 +158,6 @@
           <p class="estimate">
             Estimate: <span id="timeEstimate">~4m 47s</span>
           </p>
-          <p class="small">Accuracy: <span id="estimateAccuracy">low</span></p>
           <div class="progress-bar large clickable" id="earnBar">
             <div class="progress" id="earnProgress"></div>
           </div>
@@ -176,28 +176,32 @@
             <li>
               <div>
                 <strong>Estimator Tweaks</strong>
-                <p class="small">Improve time estimate accuracy (locked)</p>
+                <p class="small">Improve time estimate accuracy</p>
+                <p class="small" id="level-estimator">LVL 0/3</p>
               </div>
               <button class="retry upgrade" data-upgrade="estimator" data-cost="1">Buy - $1</button>
             </li>
             <li>
               <div>
                 <strong>Bar Tuner I</strong>
-                <p class="small">Click bar speed +5% (locked)</p>
+                <p class="small">Click bar speed +5%</p>
+                <p class="small" id="level-bar-tuner">LVL 0/∞</p>
               </div>
               <button class="retry upgrade" data-upgrade="bar-tuner" data-cost="1">Buy - $1</button>
             </li>
             <li>
               <div>
                 <strong>Auto-Click Harness</strong>
-                <p class="small">Automates small bar nudges (locked)</p>
+                <p class="small">Automates small bar nudges</p>
+                <p class="small" id="level-auto-click">LVL 0/5</p>
               </div>
               <button class="retry upgrade" data-upgrade="auto-click" data-cost="3">Buy - $3</button>
             </li>
             <li>
               <div>
                 <strong>Multi-Window Buffer</strong>
-                <p class="small">Run 2 Clicker96 windows at once (locked)</p>
+                <p class="small">Run 2 Clicker96 windows at once</p>
+                <p class="small" id="level-multi-window">LVL 0/∞</p>
               </div>
               <button class="retry upgrade" data-upgrade="multi-window" data-cost="6">Buy - $6</button>
             </li>
@@ -239,6 +243,23 @@
             <button id="confirmCloseYes">Yes</button>
             <button id="confirmCloseNo">No</button>
           </div>
+        </div>
+      </div>
+
+      <div class="window hidden" id="houseWindow">
+        <header class="window-header">
+          <span>The House</span>
+          <button class="close" data-close="houseWindow">✕</button>
+        </header>
+        <div class="window-body">
+          <p class="small">Place your bet:</p>
+          <input type="number" id="betInput" min="1" step="1" />
+          <div class="confirm-actions">
+            <button id="betCoinflip">50/50</button>
+            <button id="betBlackjack">Blackjack</button>
+            <button id="betRoulette">Red/Black</button>
+          </div>
+          <p class="small" id="houseStatus">Double or nothing? You decide.</p>
         </div>
       </div>
 
