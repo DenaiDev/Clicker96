@@ -24,7 +24,6 @@ const retryDownload = document.getElementById("retryDownload");
 const downloadsIcon = document.getElementById("downloadsIcon");
 const explorerWindow = document.getElementById("explorerWindow");
 const downloadList = document.getElementById("downloadList");
-const zipFile = document.getElementById("zipFile");
 const zipWindow = document.getElementById("zipWindow");
 const installerFile = document.getElementById("installerFile");
 const installerWindow = document.getElementById("installerWindow");
@@ -593,10 +592,6 @@ downloadsIcon.addEventListener("click", () => {
 
 internetIcon.addEventListener("click", () => {
   showWindow(internetWindow);
-});
-
-zipFile.addEventListener("click", () => {
-  showWindow(zipWindow);
 });
 
 installerFile.addEventListener("click", () => {
