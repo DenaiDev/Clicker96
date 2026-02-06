@@ -33,6 +33,7 @@ const installProgress = document.getElementById("installProgress");
 const installStatus = document.getElementById("installStatus");
 const clickerIcon = document.getElementById("clickerIcon");
 const internetIcon = document.getElementById("internetIcon");
+const casinoIcon = document.getElementById("casinoIcon");
 const internetWindow = document.getElementById("internetWindow");
 const clickerWindow = document.getElementById("clickerWindow");
 const earnBar = document.getElementById("earnBar");
@@ -58,12 +59,12 @@ const confirmCloseNo = document.getElementById("confirmCloseNo");
 const comboMeter = document.getElementById("comboMeter");
 const comboValue = document.getElementById("comboValue");
 const comboFill = document.getElementById("comboFill");
-const houseWindow = document.getElementById("houseWindow");
-const betInput = document.getElementById("betInput");
-const betCoinflip = document.getElementById("betCoinflip");
-const betBlackjack = document.getElementById("betBlackjack");
-const betRoulette = document.getElementById("betRoulette");
-const houseStatus = document.getElementById("houseStatus");
+const casinoWindow = document.getElementById("casinoWindow");
+const casinoBetInput = document.getElementById("casinoBetInput");
+const casinoCoinflip = document.getElementById("casinoCoinflip");
+const casinoBlackjack = document.getElementById("casinoBlackjack");
+const casinoDouble = document.getElementById("casinoDouble");
+const casinoStatus = document.getElementById("casinoStatus");
 const iconsContainer = document.querySelector(".icons");
 const levelEstimator = document.getElementById("level-estimator");
 const levelBarTuner = document.getElementById("level-bar-tuner");
@@ -92,12 +93,19 @@ let comboRemaining = 10000;
 let mailStage = 0;
 let totalClicks = 0;
 let blackjackPending = 0;
+let downloadRetryCount = 0;
 let upgrades = {
   estimator: 0,
   barTuner: 0,
   autoClick: 0,
   multiWindow: 0,
 };
+const wrongPasswordMessages = [
+  "Access denied. Try again.",
+  "Password mismatch.",
+  "Invalid login credentials.",
+  "Hmm... that didn't work.",
+];
 
 const gridSize = { x: 88, y: 92 };
 const accuracyLevels = ["low", "medium", "high", "precise"];
@@ -106,7 +114,8 @@ const iconDefaults = {
   internetIcon: { x: 0, y: 1 },
   downloadsIcon: { x: 0, y: 2 },
   clickerIcon: { x: 0, y: 3 },
-  trashIcon: { x: 0, y: 4 },
+  casinoIcon: { x: 0, y: 4 },
+  trashIcon: { x: 0, y: 5 },
 };
 const upgradeConfigs = {
   estimator: { max: 3, base: 1, scale: 2, levelEl: levelEstimator },
@@ -173,32 +182,43 @@ function focusWindow(windowEl) {
 
 function startDownloadSequence() {
   showWindow(downloadWindow);
+  downloadRetryCount = 0;
   retryDownload.classList.add("hidden");
   downloadProgress.style.width = "0%";
   downloadStatus.textContent = "Downloading clicker96.zip...";
 
   setTimeout(() => {
-    downloadProgress.style.width = "45%";
+    downloadProgress.style.width = "30%";
     downloadStatus.textContent = "Stutter detected...";
-  }, 800);
+  }, 1500);
 
   setTimeout(() => {
-    downloadProgress.style.width = "65%";
+    downloadProgress.style.width = "45%";
     downloadStatus.textContent = "Download failed. Connection lost.";
     retryDownload.classList.remove("hidden");
-  }, 1600);
+  }, 3000);
 }
 
 function retryDownloadSequence() {
   retryDownload.classList.add("hidden");
+  downloadRetryCount += 1;
   downloadStatus.textContent = "Retrying...";
-  downloadProgress.style.width = "15%";
+  downloadProgress.style.width = "10%";
+
+  if (downloadRetryCount < 2) {
+    setTimeout(() => {
+      downloadProgress.style.width = "50%";
+      downloadStatus.textContent = "Download failed again.";
+      retryDownload.classList.remove("hidden");
+    }, 2000);
+    return;
+  }
 
   setTimeout(() => {
     downloadProgress.style.width = "100%";
     downloadStatus.textContent = "Download complete. clicker96.zip saved.";
     addDownloadFile();
-  }, 1200);
+  }, 2500);
 }
 
 function startInstallSequence() {
@@ -214,8 +234,12 @@ function startInstallSequence() {
   setTimeout(() => {
     installProgress.style.width = "100%";
     installStatus.textContent = "Install complete. Clicker96 is ready.";
-    clickerIcon.classList.remove("hidden");
-    ensureIconPlacement(clickerIcon);
+    if (clickerIcon.classList.contains("hidden")) {
+      clickerIcon.classList.remove("hidden");
+      ensureIconPlacement(clickerIcon);
+    } else {
+      spawnClickerIcon();
+    }
     maybeAward("installer", "Installer", "Clicker96 installed.");
   }, 1400);
 }
@@ -386,6 +410,10 @@ function loadSlot() {
   trash = data.trash ?? [];
   achievements = data.achievements ?? [];
   upgrades = data.upgrades ?? upgrades;
+  upgrades.estimator = Number(upgrades.estimator) || 0;
+  upgrades.barTuner = Number(upgrades.barTuner) || 0;
+  upgrades.autoClick = Number(upgrades.autoClick) || 0;
+  upgrades.multiWindow = Number(upgrades.multiWindow) || 0;
   mailStage = data.mailStage ?? 0;
   updateMoneyDisplay();
   renderDownloads();
@@ -453,6 +481,12 @@ function handleLogin() {
   const value = passwordInput.value.trim();
   if (value.length !== 6) {
     loginStatus.textContent = "Password must be 6 digits.";
+    return;
+  }
+  if (value !== "123456") {
+    const message =
+      wrongPasswordMessages[Math.floor(Math.random() * wrongPasswordMessages.length)];
+    loginStatus.textContent = message;
     return;
   }
   loginStatus.textContent = "Welcome back.";
@@ -536,8 +570,8 @@ function deleteSaveData() {
 }
 
 function openSettings() {
-  titleOverlay.classList.add("hidden");
-  desktop.classList.remove("hidden");
+  titleOverlay.classList.remove("hidden");
+  desktop.classList.add("hidden");
   showWindow(settingsWindow);
   settingsSlotLabel.textContent = String(currentSlot);
 }
@@ -577,38 +611,42 @@ function setupWindowDragging() {
 function setupIconDragging() {
   const icons = document.querySelectorAll(".icon");
   icons.forEach((icon, index) => {
-    icon.style.position = "absolute";
-    if (!icon.dataset.gridX) {
-      const defaults = iconDefaults[icon.id];
-      const column = defaults ? defaults.x : 0;
-      const row = defaults ? defaults.y : index;
-      icon.dataset.gridX = String(column);
-      icon.dataset.gridY = String(row);
+    registerIcon(icon, index);
+  });
+}
+
+function registerIcon(icon, index = 0) {
+  icon.style.position = "absolute";
+  if (!icon.dataset.gridX) {
+    const defaults = iconDefaults[icon.id];
+    const column = defaults ? defaults.x : 0;
+    const row = defaults ? defaults.y : index;
+    icon.dataset.gridX = String(column);
+    icon.dataset.gridY = String(row);
+  }
+  snapIcon(icon);
+
+  icon.addEventListener("mousedown", (event) => {
+    if (event.button !== 0) {
+      return;
     }
-    snapIcon(icon);
+    const rect = icon.getBoundingClientRect();
+    const offsetX = event.clientX - rect.left;
+    const offsetY = event.clientY - rect.top;
 
-    icon.addEventListener("mousedown", (event) => {
-      if (event.button !== 0) {
-        return;
-      }
-      const rect = icon.getBoundingClientRect();
-      const offsetX = event.clientX - rect.left;
-      const offsetY = event.clientY - rect.top;
+    function onMove(moveEvent) {
+      icon.style.left = `${moveEvent.clientX - offsetX}px`;
+      icon.style.top = `${moveEvent.clientY - offsetY}px`;
+    }
 
-      function onMove(moveEvent) {
-        icon.style.left = `${moveEvent.clientX - offsetX}px`;
-        icon.style.top = `${moveEvent.clientY - offsetY}px`;
-      }
+    function onUp() {
+      document.removeEventListener("mousemove", onMove);
+      document.removeEventListener("mouseup", onUp);
+      snapIcon(icon);
+    }
 
-      function onUp() {
-        document.removeEventListener("mousemove", onMove);
-        document.removeEventListener("mouseup", onUp);
-        snapIcon(icon);
-      }
-
-      document.addEventListener("mousemove", onMove);
-      document.addEventListener("mouseup", onUp);
-    });
+    document.addEventListener("mousemove", onMove);
+    document.addEventListener("mouseup", onUp);
   });
 }
 
@@ -712,6 +750,25 @@ function initIconGrid() {
   });
 }
 
+function spawnClickerIcon() {
+  if (!iconsContainer) {
+    return;
+  }
+  const count = document.querySelectorAll(".icon.clicker-clone").length + 2;
+  const icon = document.createElement("button");
+  icon.className = "icon clicker-clone";
+  icon.innerHTML = `<span class=\"icon-image clicker\"></span>Clicker96 (${count})`;
+  icon.addEventListener("click", () => {
+    showWindow(clickerWindow);
+    if (!earnInterval) {
+      startEarning();
+    }
+  });
+  iconsContainer.appendChild(icon);
+  registerIcon(icon, count);
+  placeIcon(icon, iconDefaults.clickerIcon.x, iconDefaults.clickerIcon.y, false);
+}
+
 function showToast(title, body) {
   toastTitle.textContent = title;
   toastBody.textContent = body;
@@ -776,6 +833,8 @@ function handleHouseMail() {
   mailStage = 3;
   hasEmail = true;
   mailBadge.classList.remove("hidden");
+  casinoIcon.classList.remove("hidden");
+  ensureIconPlacement(casinoIcon);
   setMailContent();
   showToast("New Mail", "The House is inviting you in.");
   saveCurrentSlot();
@@ -810,6 +869,8 @@ function setMailContent() {
       "The House is open. Care to test your luck? Attached is a new game.";
     downloadAttachment.classList.add("hidden");
     houseAttachment.classList.remove("hidden");
+    casinoIcon.classList.remove("hidden");
+    ensureIconPlacement(casinoIcon);
   }
 }
 
@@ -843,6 +904,7 @@ function applyUpgrade(key) {
     upgrades.multiWindow += 1;
   }
   saveCurrentSlot();
+  refreshUpgrades();
   showToast("Upgrade", "Upgrade installed.");
 }
 
@@ -885,13 +947,13 @@ function getUpgradeCost(key) {
 }
 
 function getBetAmount() {
-  const raw = Number(betInput.value);
+  const raw = Number(casinoBetInput.value);
   if (!Number.isFinite(raw) || raw <= 0) {
-    houseStatus.textContent = "Enter a valid bet amount.";
+    casinoStatus.textContent = "Enter a valid bet amount.";
     return null;
   }
   if (raw > totalMoney) {
-    houseStatus.textContent = "Not enough funds.";
+    casinoStatus.textContent = "Not enough funds.";
     return null;
   }
   return Math.floor(raw);
@@ -903,21 +965,25 @@ function resolveSimpleBet(label, winChance = 0.5) {
     return;
   }
   blackjackPending = 0;
+  casinoDouble.classList.add("hidden");
   const win = Math.random() < winChance;
   totalMoney += win ? bet : -bet;
   updateMoneyDisplay();
   saveCurrentSlot();
-  houseStatus.textContent = win ? `${label}: You won $${bet}.` : `${label}: You lost $${bet}.`;
+  casinoStatus.textContent = win
+    ? `${label}: You won $${bet}.`
+    : `${label}: You lost $${bet}.`;
 }
 
 function resolveBlackjack() {
-  let bet = blackjackPending || getBetAmount();
+  const bet = blackjackPending || getBetAmount();
   if (!bet) {
     return;
   }
   if (bet > totalMoney) {
-    houseStatus.textContent = "Not enough funds for the double.";
+    casinoStatus.textContent = "Not enough funds for the double.";
     blackjackPending = 0;
+    casinoDouble.classList.add("hidden");
     return;
   }
   const win = Math.random() < 0.5;
@@ -926,10 +992,12 @@ function resolveBlackjack() {
   saveCurrentSlot();
   if (win) {
     blackjackPending = bet * 2;
-    houseStatus.textContent = `Blackjack win! Play again to double to $${blackjackPending}.`;
+    casinoStatus.textContent = `Blackjack win! Double to $${blackjackPending}?`;
+    casinoDouble.classList.remove("hidden");
   } else {
     blackjackPending = 0;
-    houseStatus.textContent = `Blackjack lost $${bet}.`;
+    casinoDouble.classList.add("hidden");
+    casinoStatus.textContent = `Blackjack lost $${bet}.`;
   }
 }
 
@@ -967,7 +1035,9 @@ downloadAttachment.addEventListener("click", () => {
 });
 
 houseAttachment.addEventListener("click", () => {
-  showWindow(houseWindow);
+  casinoIcon.classList.remove("hidden");
+  ensureIconPlacement(casinoIcon);
+  showWindow(casinoWindow);
 });
 
 retryDownload.addEventListener("click", () => {
@@ -986,15 +1056,19 @@ installerFile.addEventListener("click", () => {
   startInstallSequence();
 });
 
-betCoinflip.addEventListener("click", () => {
+casinoIcon.addEventListener("click", () => {
+  showWindow(casinoWindow);
+});
+
+casinoCoinflip.addEventListener("click", () => {
   resolveSimpleBet("50/50");
 });
 
-betRoulette.addEventListener("click", () => {
-  resolveSimpleBet("Red/Black");
+casinoBlackjack.addEventListener("click", () => {
+  resolveBlackjack();
 });
 
-betBlackjack.addEventListener("click", () => {
+casinoDouble.addEventListener("click", () => {
   resolveBlackjack();
 });
 

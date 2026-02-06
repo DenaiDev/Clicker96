@@ -213,6 +213,10 @@ body {
   background: linear-gradient(135deg, #7ce8ff, #5a8cff);
 }
 
+.icon-image.casino {
+  background: linear-gradient(135deg, #ff7a7a, #c04848);
+}
+
 .icon-image.folder {
   background: linear-gradient(135deg, #ffd56c, #c58d1c);
 }
@@ -259,6 +263,15 @@ body {
   padding: 0.8rem 1rem 1rem;
   font-size: 0.85rem;
   color: #d1d7e6;
+}
+
+.window-body input {
+  width: 100%;
+  background: #0f1624;
+  border: 1px solid #3d4c6a;
+  color: #e8e8f0;
+  padding: 0.35rem 0.5rem;
+  margin-top: 0.4rem;
 }
 
 .window .close {

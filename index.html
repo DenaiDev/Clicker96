@@ -27,6 +27,18 @@
       </div>
     </div>
 
+    <div class="window hidden" id="settingsWindow">
+      <header class="window-header">
+        <span>Settings</span>
+        <button class="close" data-close="settingsWindow">✕</button>
+      </header>
+      <div class="window-body">
+        <p class="small">Save Slot: <span id="settingsSlotLabel">1</span></p>
+        <button class="danger" id="deleteSaveButton">Delete Save Data</button>
+        <p class="small" id="settingsStatus">Deletes current slot data.</p>
+      </div>
+    </div>
+
     <div class="login-screen hidden" id="loginScreen">
       <div class="login-card">
         <div class="avatar"></div>
@@ -63,6 +75,10 @@
         <button class="icon" id="internetIcon">
           <span class="icon-image internet"></span>
           Internet
+        </button>
+        <button class="icon hidden" id="casinoIcon">
+          <span class="icon-image casino"></span>
+          Casino
         </button>
         <button class="icon hidden" id="downloadsIcon">
           <span class="icon-image folder"></span>
@@ -209,18 +225,6 @@
         </div>
       </div>
 
-      <div class="window hidden" id="settingsWindow">
-        <header class="window-header">
-          <span>Settings</span>
-          <button class="close" data-close="settingsWindow">✕</button>
-        </header>
-        <div class="window-body">
-          <p class="small">Save Slot: <span id="settingsSlotLabel">1</span></p>
-          <button class="danger" id="deleteSaveButton">Delete Save Data</button>
-          <p class="small" id="settingsStatus">Deletes current slot data.</p>
-        </div>
-      </div>
-
       <div class="window hidden" id="trashWindow">
         <header class="window-header">
           <span>Trash</span>
@@ -246,20 +250,20 @@
         </div>
       </div>
 
-      <div class="window hidden" id="houseWindow">
+      <div class="window hidden" id="casinoWindow">
         <header class="window-header">
-          <span>The House</span>
-          <button class="close" data-close="houseWindow">✕</button>
+          <span>Casino</span>
+          <button class="close" data-close="casinoWindow">✕</button>
         </header>
         <div class="window-body">
-          <p class="small">Place your bet:</p>
-          <input type="number" id="betInput" min="1" step="1" />
+          <p class="small">Bet amount:</p>
+          <input type="number" id="casinoBetInput" min="1" step="1" />
           <div class="confirm-actions">
-            <button id="betCoinflip">50/50</button>
-            <button id="betBlackjack">Blackjack</button>
-            <button id="betRoulette">Red/Black</button>
+            <button id="casinoCoinflip">50/50</button>
+            <button id="casinoBlackjack">Blackjack</button>
+            <button id="casinoDouble" class="hidden">Double Down</button>
           </div>
-          <p class="small" id="houseStatus">Double or nothing? You decide.</p>
+          <p class="small" id="casinoStatus">Pick a game to start.</p>
         </div>
       </div>
 
