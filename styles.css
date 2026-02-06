@@ -70,6 +70,11 @@ body {
   cursor: pointer;
 }
 
+.danger {
+  background: #6b1d1d;
+  color: #ffe2e2;
+}
+
 .login-card input {
   background: #0f1624;
   border: 1px solid #3d4c6a;
@@ -129,6 +134,27 @@ body {
   z-index: 2;
 }
 
+.taskbar-windows {
+  display: inline-flex;
+  gap: 0.4rem;
+  flex-wrap: wrap;
+  max-width: 50vw;
+  align-items: center;
+}
+
+.taskbar-window {
+  background: #1b263b;
+  border: 1px solid #334a6b;
+  color: #d7e1f3;
+  padding: 0.15rem 0.4rem;
+  font-size: 0.75rem;
+  border-radius: 4px;
+}
+
+.taskbar-window.more {
+  background: #2e3b54;
+}
+
 .taskbar-right {
   display: inline-flex;
   gap: 1rem;
@@ -141,7 +167,9 @@ body {
   gap: 1rem;
   align-items: flex-start;
   padding-top: 1rem;
-  width: 80px;
+  width: 100%;
+  height: calc(100vh - 40px);
+  position: relative;
 }
 
 .icon {
@@ -154,6 +182,7 @@ body {
   font-size: 0.8rem;
   gap: 0.35rem;
   width: 72px;
+  position: absolute;
 }
 
 .icon-image {
@@ -164,6 +193,7 @@ body {
   display: inline-block;
   border: 1px solid rgba(255, 255, 255, 0.4);
   box-shadow: 0 0 10px rgba(0, 0, 0, 0.4);
+  position: relative;
 }
 
 .icon-image.mail {
@@ -180,6 +210,22 @@ body {
 
 .icon-image.folder {
   background: linear-gradient(135deg, #ffd56c, #c58d1c);
+}
+
+.icon-image.trash {
+  background: linear-gradient(135deg, #c4c4c4, #6c6c6c);
+}
+
+.badge {
+  position: absolute;
+  top: -6px;
+  right: -6px;
+  background: #d7263d;
+  color: #fff;
+  border-radius: 999px;
+  font-size: 0.65rem;
+  padding: 0.1rem 0.35rem;
+  border: 1px solid rgba(0, 0, 0, 0.4);
 }
 
 .window {
@@ -201,6 +247,7 @@ body {
   padding: 0.4rem 0.6rem;
   font-size: 0.85rem;
   color: #e8e8f0;
+  cursor: move;
 }
 
 .window-body {
@@ -303,6 +350,28 @@ body {
   padding: 0.5rem 0.6rem;
   border: 1px solid #2f3f5e;
   background: #141b2a;
+}
+
+.toast {
+  position: fixed;
+  right: 1rem;
+  bottom: 60px;
+  background: #1a2233;
+  border: 2px solid #2f3f5e;
+  color: #e8e8f0;
+  padding: 0.7rem 0.9rem;
+  width: min(280px, 80vw);
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.5);
+  z-index: 8;
+}
+
+.toast-title {
+  font-weight: bold;
+  margin-bottom: 0.3rem;
+}
+
+.toast.hidden {
+  display: none;
 }
 
 .hidden {
