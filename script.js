@@ -1961,9 +1961,12 @@ function startPipeGame() {
     pipeTimer.textContent = `Time: ${pipeGame.timeLeft}s`;
     if (pipeGame.timeLeft <= 0) {
       clearInterval(pipeGame.timer);
-      showToast("Threat Failed", "Time expired. The threat remains.");
+      totalMoney -= 3;
+      updateMoneyDisplay();
+      showToast("Threat Failed", "Time expired. You lost $3.");
       hideWindow(virusPipeWindow);
       pipeGame = null;
+      saveCurrentSlot();
     }
   }, 1000);
   pipeTimer.textContent = "Time: 60s";
