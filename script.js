@@ -2,6 +2,7 @@ const bootOverlay = document.getElementById("bootOverlay");
 const titleOverlay = document.getElementById("titleOverlay");
 const loginScreen = document.getElementById("loginScreen");
 const loginButton = document.getElementById("loginButton");
+const loginBackButton = document.getElementById("loginBackButton");
 const passwordInput = document.getElementById("passwordInput");
 const loginStatus = document.getElementById("loginStatus");
 const startButton = document.getElementById("startButton");
@@ -51,6 +52,7 @@ const taskbarWindows = document.getElementById("taskbarWindows");
 const toast = document.getElementById("toast");
 const toastTitle = document.getElementById("toastTitle");
 const toastBody = document.getElementById("toastBody");
+const toastActionButton = document.getElementById("toastActionButton");
 const confirmCloseWindow = document.getElementById("confirmCloseWindow");
 const confirmCloseYes = document.getElementById("confirmCloseYes");
 const confirmCloseNo = document.getElementById("confirmCloseNo");
@@ -76,6 +78,20 @@ const desktopSettingsWindow = document.getElementById("desktopSettingsWindow");
 const audioStatus = document.getElementById("audioStatus");
 const toggleAudioButton = document.getElementById("toggleAudioButton");
 const logoutButton = document.getElementById("logoutButton");
+const masterVolumeInput = document.getElementById("masterVolumeInput");
+const bgVolumeInput = document.getElementById("bgVolumeInput");
+const sfxVolumeInput = document.getElementById("sfxVolumeInput");
+const openAchievementsWindow = document.getElementById("openAchievementsWindow");
+const achievementsWindow = document.getElementById("achievementsWindow");
+const antivirusIcon = document.getElementById("antivirusIcon");
+const antivirusWindow = document.getElementById("antivirusWindow");
+const antivirusStatus = document.getElementById("antivirusStatus");
+const virusPipeWindow = document.getElementById("virusPipeWindow");
+const pipeGrid = document.getElementById("pipeGrid");
+const pipeStatus = document.getElementById("pipeStatus");
+const pipeTimer = document.getElementById("pipeTimer");
+const pipeRotate = document.getElementById("pipeRotate");
+const pipeCheck = document.getElementById("pipeCheck");
 const cosmeticShopList = document.getElementById("cosmeticShopList");
 const openCosmetics = document.getElementById("openCosmetics");
 const cosmeticsWindow = document.getElementById("cosmeticsWindow");
@@ -134,8 +150,13 @@ let isBootstrapping = true;
 let unlockedSongs = ["w96-ambient"];
 let currentTrack = null;
 let audioEnabled = true;
+let masterVolume = 1;
 let sfxVolume = 0.4;
 let musicVolume = 0.5;
+let achievementFilter = "all";
+let virusState = { pendingIconId: null, activeNodeWindowId: null, nodeHp: 0, kills: 0, threatPending: false };
+let virusInterval = null;
+let pipeGame = null;
 let jukeboxUiInterval = null;
 let upgrades = {
   estimator: 0,
@@ -145,6 +166,8 @@ let upgrades = {
   payoutBoost: 0,
   timeReducer: 0,
   doubleTap: 0,
+  antivirus: 0,
+  antivirusAutoSolve: 0,
 };
 const wrongPasswordMessages = [
   "Access denied. Try again.",
@@ -173,7 +196,8 @@ const iconDefaults = {
   casinoIcon: { x: 0, y: 4 },
   jukeboxIcon: { x: 0, y: 5 },
   desktopSettingsIcon: { x: 0, y: 6 },
-  trashIcon: { x: 0, y: 7 },
+  antivirusIcon: { x: 0, y: 7 },
+  trashIcon: { x: 0, y: 8 },
 };
 const upgradeConfigs = {
   estimator: { max: 3, base: 1, scale: 2, levelEl: levelEstimator },
@@ -183,6 +207,8 @@ const upgradeConfigs = {
   "payout-boost": { max: null, base: 5, scale: 2, levelEl: levelPayoutBoost },
   "time-reducer": { max: 25, base: 20, scale: 1.6, levelEl: levelTimeReducer },
   "double-tap": { max: 5, base: 120, scale: 3.5, levelEl: levelDoubleTap },
+  antivirus: { max: 1, base: 180, scale: 1, levelEl: null },
+  "antivirus-autosolve": { max: 1, base: 420, scale: 1, levelEl: null },
 };
 
 const achievementConfigs = [
@@ -199,6 +225,8 @@ const achievementConfigs = [
   { id: "rapid-clicker", title: "Rapid Clicker", description: "Clicked the bar 25 times." },
   { id: "sans", title: "Sans?", description: "You entered a secret password." },
   { id: "jukebox-on", title: "DJ", description: "Played your first music track." },
+  { id: "cleaner", title: "Cleaner", description: "Destroyed your first virus node." },
+  { id: "network-purge", title: "Network Purge", description: "Cleared the pipe threat event." },
 ];
 
 const cosmeticCatalog = [
@@ -283,6 +311,9 @@ function showWindow(windowEl) {
 
 function hideWindow(windowEl) {
   windowEl.classList.add("hidden");
+  if (windowEl.id === "virusPipeWindow" && pipeGame && pipeGame.timer) {
+    clearInterval(pipeGame.timer);
+  }
   openedWindows.delete(windowEl.id);
   renderTaskbarWindows();
   playSfx("windowClose");
@@ -333,7 +364,7 @@ function getAudio(path, volume = 1) {
   const cacheKey = `${path}|${volume}`;
   if (!audioCache.has(cacheKey)) {
     const audio = new Audio(path);
-    audio.volume = volume;
+    audio.volume = Math.max(0, Math.min(1, volume * masterVolume));
     audioCache.set(cacheKey, audio);
   }
   return audioCache.get(cacheKey);
@@ -348,6 +379,7 @@ function playSfx(type) {
     return;
   }
   const audio = getAudio(path, sfxVolume);
+  if (audio) { audio.volume = Math.max(0, Math.min(1, sfxVolume * masterVolume)); }
   if (!audio) {
     return;
   }
@@ -392,6 +424,7 @@ function playSong(songId) {
     currentTrack.audio.currentTime = 0;
   }
   const audio = song.source ? getAudio(song.source, musicVolume) : null;
+  if (audio) { audio.volume = Math.max(0, Math.min(1, musicVolume * masterVolume)); }
   currentTrack = { id: songId, audio };
   jukeboxNowPlaying.textContent = song.title;
   if (audio) {
@@ -668,6 +701,7 @@ function proceedToDesktop() {
   loginScreen.classList.add("hidden");
   desktop.classList.remove("hidden");
   scheduleEmail();
+  startVirusCycle();
 }
 
 function updateMoneyDisplay() {
@@ -710,14 +744,18 @@ function loadSlot() {
       payoutBoost: 0,
       timeReducer: 0,
       doubleTap: 0,
+      antivirus: 0,
+      antivirusAutoSolve: 0,
     };
     casinoBets = 0;
     upgrades.doubleTap = 0;
     unlockedSongs = ["w96-ambient"];
     currentTrack = null;
     audioEnabled = true;
+    masterVolume = 1;
     sfxVolume = 0.4;
     musicVolume = 0.5;
+    virusState = { pendingIconId: null, activeNodeWindowId: null, nodeHp: 0, kills: 0, threatPending: false };
     updateMoneyDisplay();
     renderDownloads();
     renderTrash();
@@ -746,19 +784,27 @@ function loadSlot() {
   upgrades.payoutBoost = Number(upgrades.payoutBoost) || 0;
   upgrades.timeReducer = Number(upgrades.timeReducer) || 0;
   upgrades.doubleTap = Number(upgrades.doubleTap) || 0;
+  upgrades.antivirus = Number(upgrades.antivirus) || 0;
+  upgrades.antivirusAutoSolve = Number(upgrades.antivirusAutoSolve) || 0;
   mailStage = data.mailStage ?? 0;
   casinoBets = data.casinoBets ?? 0;
   unlockedSongs = data.unlockedSongs ?? ["w96-ambient"];
   currentTrack = null;
   audioEnabled = data.audioEnabled ?? true;
+  masterVolume = data.masterVolume ?? 1;
   sfxVolume = data.sfxVolume ?? 0.4;
   musicVolume = data.musicVolume ?? 0.5;
+  virusState = data.virusState ?? virusState;
   updateMoneyDisplay();
   renderDownloads();
   renderTrash();
   renderCosmetics();
   renderAchievements();
   applyDesktopState(data.desktopState);
+  if (upgrades.antivirus > 0 && antivirusIcon && antivirusIcon.classList.contains("hidden")) {
+    antivirusIcon.classList.remove("hidden");
+    placeInstalledIcon(antivirusIcon, 0);
+  }
   if (!data.desktopState && unlockedSongs.length > 0) {
     jukeboxIcon.classList.remove("hidden");
     ensureIconPlacement(jukeboxIcon);
@@ -792,8 +838,10 @@ function saveCurrentSlot() {
     unlockedSongs,
     currentTrackId: currentTrack ? currentTrack.id : null,
     audioEnabled,
+    masterVolume,
     sfxVolume,
     musicVolume,
+    virusState,
     desktopState: collectDesktopState(),
   };
   localStorage.setItem(currentSlotKey(), JSON.stringify(data));
@@ -817,6 +865,8 @@ function startGameAction() {
       payoutBoost: 0,
       timeReducer: 0,
       doubleTap: 0,
+      antivirus: 0,
+      antivirusAutoSolve: 0,
     };
     mailStage = 0;
     casinoBets = 0;
@@ -1375,6 +1425,9 @@ function applyDesktopState(state) {
     if (id === "casinoIcon") {
       icon.classList.toggle("hidden", mailStage < 3);
     }
+    if (id === "antivirusIcon") {
+      icon.classList.toggle("hidden", upgrades.antivirus < 1);
+    }
 
     setIconPosition(icon, x, y);
   });
@@ -1482,16 +1535,281 @@ function spawnClickerIcon() {
   placeInstalledIcon(icon, iconDefaults.clickerIcon.x);
 }
 
-function showToast(title, body) {
+function showToast(title, body, options = {}) {
   toastTitle.textContent = title;
   toastBody.textContent = body;
+  if (toastActionButton) {
+    if (options.actionLabel && options.onAction) {
+      toastActionButton.textContent = options.actionLabel;
+      toastActionButton.classList.remove("hidden");
+      toastActionButton.onclick = () => {
+        options.onAction();
+        if (!options.sticky) {
+          toast.classList.add("hidden");
+        }
+      };
+    } else {
+      toastActionButton.classList.add("hidden");
+      toastActionButton.onclick = null;
+    }
+  }
   toast.classList.remove("hidden");
   if (lastToastTimeout) {
     clearTimeout(lastToastTimeout);
   }
-  lastToastTimeout = setTimeout(() => {
-    toast.classList.add("hidden");
-  }, 4000);
+  if (!options.sticky) {
+    lastToastTimeout = setTimeout(() => {
+      toast.classList.add("hidden");
+    }, options.duration || 4000);
+  }
+}
+
+
+function setVolume(kind, value) {
+  const clamped = Math.max(0, Math.min(1, Number(value) || 0));
+  if (kind === "master") {
+    masterVolume = clamped;
+  }
+  if (kind === "bg") {
+    musicVolume = clamped;
+    if (currentTrack && currentTrack.audio) {
+      currentTrack.audio.volume = musicVolume * masterVolume;
+    }
+  }
+  if (kind === "sfx") {
+    sfxVolume = clamped;
+  }
+  updateAudioStatus();
+  saveCurrentSlot();
+}
+
+function getWindowForIcon(iconId) {
+  const map = {
+    mailIcon: mailWindow,
+    internetIcon: internetWindow,
+    downloadsIcon: explorerWindow,
+    clickerIcon: clickerWindow,
+    casinoIcon: casinoWindow,
+    jukeboxIcon: jukeboxWindow,
+    desktopSettingsIcon: desktopSettingsWindow,
+    trashIcon: trashWindow,
+    antivirusIcon: antivirusWindow,
+  };
+  return map[iconId] || null;
+}
+
+function jitterIcon(icon, times = 2) {
+  if (!icon) return;
+  let count = 0;
+  const tick = () => {
+    icon.classList.remove("infected");
+    void icon.offsetWidth;
+    icon.classList.add("infected");
+    count += 1;
+    if (count < times) {
+      setTimeout(tick, 2000);
+    }
+  };
+  tick();
+}
+
+function pickVirusIcon() {
+  const candidates = Array.from(document.querySelectorAll(".icon:not(.hidden)"))
+    .filter((el) => el.id && el.id !== "antivirusIcon");
+  if (candidates.length === 0) return null;
+  return candidates[Math.floor(Math.random() * candidates.length)];
+}
+
+function startVirusCycle() {
+  if (virusInterval) clearInterval(virusInterval);
+  virusInterval = setInterval(() => {
+    if (virusState.pendingIconId) {
+      return;
+    }
+    const icon = pickVirusIcon();
+    if (!icon) return;
+    if (upgrades.antivirus > 0) {
+      showToast("Antivirus", `Virus detected in ${icon.textContent.trim()} and eliminated.`);
+      if (antivirusStatus) {
+        antivirusStatus.textContent = `Last action: cleaned ${icon.textContent.trim()}.`;
+      }
+      return;
+    }
+    virusState.pendingIconId = icon.id;
+    jitterIcon(icon, 1 + Math.floor(Math.random() * 2));
+    saveCurrentSlot();
+  }, 300000);
+}
+
+function maybeSpawnVirusNode(windowEl) {
+  if (!windowEl || !virusState.pendingIconId || upgrades.antivirus > 0) {
+    return;
+  }
+  if (virusState.activeNodeWindowId && virusState.activeNodeWindowId !== windowEl.id) {
+    return;
+  }
+  const body = windowEl.querySelector(".window-body");
+  if (!body || body.querySelector(".virus-node")) return;
+  const node = document.createElement("button");
+  node.type = "button";
+  node.className = "virus-node";
+  node.title = "Corrupted node";
+  node.style.left = `${20 + Math.floor(Math.random() * 160)}px`;
+  node.style.top = `${20 + Math.floor(Math.random() * 90)}px`;
+  node.dataset.hp = "3";
+  node.addEventListener("click", () => {
+    const hp = Number(node.dataset.hp || 0) - 1;
+    if (hp > 0) {
+      node.dataset.hp = String(hp);
+      return;
+    }
+    node.remove();
+    totalMoney += 1;
+    updateMoneyDisplay();
+    virusState.pendingIconId = null;
+    virusState.activeNodeWindowId = null;
+    virusState.kills += 1;
+    maybeAward("cleaner", "Cleaner", "Destroyed your first virus node.");
+    if (virusState.kills >= 3 && !virusState.threatPending) {
+      triggerThreatEvent();
+    }
+    saveCurrentSlot();
+  });
+  body.style.position = "relative";
+  body.appendChild(node);
+  virusState.activeNodeWindowId = windowEl.id;
+}
+
+function triggerThreatEvent() {
+  virusState.threatPending = true;
+  showToast("Threat Escalation", "Critical network threat detected.", {
+    sticky: true,
+    actionLabel: "Eliminate Threat",
+    onAction: () => {
+      showWindow(virusPipeWindow);
+      startPipeGame();
+    },
+  });
+  if (upgrades.antivirusAutoSolve > 0) {
+    setTimeout(() => {
+      completeThreatEvent(true);
+    }, 800);
+  }
+}
+
+function completeThreatEvent(auto = false) {
+  virusState.threatPending = false;
+  virusState.kills = 0;
+  totalMoney += 3;
+  updateMoneyDisplay();
+  showToast("Threat Cleared", auto ? "Antivirus auto-resolved the network threat." : "Threat eliminated. +$3 reward.");
+  maybeAward("network-purge", "Network Purge", "Cleared the pipe threat event.");
+  hideWindow(virusPipeWindow);
+  pipeGame = null;
+  saveCurrentSlot();
+}
+
+function pipeConnections(cell) {
+  if (!cell || !cell.type) return [];
+  if (cell.type === "line") return cell.rot % 180 === 0 ? ["up", "down"] : ["left", "right"];
+  if (cell.type === "corner") {
+    const r = ((cell.rot % 360) + 360) % 360;
+    if (r === 0) return ["up", "right"];
+    if (r === 90) return ["right", "down"];
+    if (r === 180) return ["down", "left"];
+    return ["left", "up"];
+  }
+  return [];
+}
+
+function startPipeGame() {
+  const size = 6;
+  const start = { x: 0, y: 0 };
+  const end = { x: 5, y: 5 };
+  pipeGame = { size, start, end, selectedType: "line", selectedIndex: null, cells: Array(size * size).fill(null), timeLeft: 60, timer: null };
+  renderPipeGrid();
+  if (pipeGame.timer) clearInterval(pipeGame.timer);
+  pipeGame.timer = setInterval(() => {
+    if (!pipeGame) return;
+    pipeGame.timeLeft -= 1;
+    pipeTimer.textContent = `Time: ${pipeGame.timeLeft}s`;
+    if (pipeGame.timeLeft <= 0) {
+      clearInterval(pipeGame.timer);
+      showToast("Threat Failed", "Time expired. The threat remains.");
+      hideWindow(virusPipeWindow);
+      pipeGame = null;
+    }
+  }, 1000);
+  pipeTimer.textContent = "Time: 60s";
+}
+
+function renderPipeGrid() {
+  if (!pipeGrid || !pipeGame) return;
+  pipeGrid.innerHTML = "";
+  for (let i = 0; i < pipeGame.cells.length; i += 1) {
+    const x = i % pipeGame.size;
+    const y = Math.floor(i / pipeGame.size);
+    const btn = document.createElement("button");
+    btn.className = "pipe-cell";
+    const cell = pipeGame.cells[i];
+    if (pipeGame.selectedIndex === i) btn.classList.add("selected");
+    if (x === pipeGame.start.x && y === pipeGame.start.y) {
+      btn.classList.add("start");
+      btn.textContent = "S";
+      btn.disabled = true;
+    } else if (x === pipeGame.end.x && y === pipeGame.end.y) {
+      btn.classList.add("end");
+      btn.textContent = "E";
+      btn.disabled = true;
+    } else if (cell) {
+      btn.textContent = cell.type === "line" ? (cell.rot % 180 === 0 ? "│" : "─") : "└";
+      btn.style.transform = `rotate(${cell.rot || 0}deg)`;
+    } else {
+      btn.textContent = "+";
+    }
+    btn.addEventListener("click", () => {
+      pipeGame.selectedIndex = i;
+      if (!(x === pipeGame.start.x && y === pipeGame.start.y) && !(x === pipeGame.end.x && y === pipeGame.end.y)) {
+        if (!pipeGame.cells[i]) {
+          pipeGame.cells[i] = { type: pipeGame.selectedType, rot: 0 };
+        }
+      }
+      renderPipeGrid();
+    });
+    pipeGrid.appendChild(btn);
+  }
+}
+
+function checkPipeSolved() {
+  if (!pipeGame) return false;
+  const dirs = { up:[0,-1], down:[0,1], left:[-1,0], right:[1,0] };
+  const opp = { up:"down", down:"up", left:"right", right:"left" };
+  const queue = [{ x: pipeGame.start.x, y: pipeGame.start.y, from: null }];
+  const seen = new Set();
+  while (queue.length) {
+    const cur = queue.shift();
+    const key = `${cur.x},${cur.y}`;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    if (cur.x === pipeGame.end.x && cur.y === pipeGame.end.y) return true;
+    const idx = cur.y * pipeGame.size + cur.x;
+    let conns = [];
+    if (cur.x === pipeGame.start.x && cur.y === pipeGame.start.y) conns = ["right", "down"];
+    else if (cur.x === pipeGame.end.x && cur.y === pipeGame.end.y) conns = ["left", "up"];
+    else conns = pipeConnections(pipeGame.cells[idx]);
+    for (const d of conns) {
+      const [dx,dy] = dirs[d];
+      const nx=cur.x+dx, ny=cur.y+dy;
+      if (nx<0||ny<0||nx>=pipeGame.size||ny>=pipeGame.size) continue;
+      const nidx = ny*pipeGame.size+nx;
+      let nconns=[];
+      if (nx===pipeGame.end.x&&ny===pipeGame.end.y) nconns=["left","up"];
+      else if (nx===pipeGame.start.x&&ny===pipeGame.start.y) nconns=["right","down"];
+      else nconns = pipeConnections(pipeGame.cells[nidx]);
+      if (nconns.includes(opp[d])) queue.push({x:nx,y:ny,from:opp[d]});
+    }
+  }
+  return false;
 }
 
 function maybeAward(id, title, body) {
@@ -1524,7 +1842,9 @@ function countUpgradesPurchased() {
     upgrades.multiWindow +
     upgrades.payoutBoost +
     upgrades.timeReducer +
-    upgrades.doubleTap
+    upgrades.doubleTap +
+    upgrades.antivirus +
+    upgrades.antivirusAutoSolve
   );
 }
 
@@ -1753,6 +2073,8 @@ function renderAchievements() {
   achievementConfigs.forEach((achievement) => {
     const li = document.createElement("li");
     const unlocked = achievements.includes(achievement.id);
+    if (achievementFilter === "unlocked" && !unlocked) return;
+    if (achievementFilter === "locked" && unlocked) return;
     li.className = `achievement ${unlocked ? "unlocked" : "locked"}`;
     const title = document.createElement("strong");
     title.textContent = achievement.title;
@@ -1811,7 +2133,10 @@ function updateAudioStatus() {
     return;
   }
   const state = audioEnabled ? "enabled" : "muted";
-  audioStatus.textContent = `Master audio ${state}.`;
+  audioStatus.textContent = `Audio ${state} · Master ${(masterVolume * 100).toFixed(0)}% · BG ${(musicVolume * 100).toFixed(0)}% · SFX ${(sfxVolume * 100).toFixed(0)}%`;
+  if (masterVolumeInput) masterVolumeInput.value = String(masterVolume.toFixed(2));
+  if (bgVolumeInput) bgVolumeInput.value = String(musicVolume.toFixed(2));
+  if (sfxVolumeInput) sfxVolumeInput.value = String(sfxVolume.toFixed(2));
 }
 
 function renderSongShop() {
@@ -1990,7 +2315,9 @@ function refreshUpgrades() {
     const isMaxed = max !== null && level >= max;
     button.disabled = isMaxed || totalMoney < cost;
     const levelText = max === null ? `LVL ${level}/∞` : `LVL ${level}/${max}`;
-    config.levelEl.textContent = levelText;
+    if (config.levelEl) {
+      config.levelEl.textContent = levelText;
+    }
   });
 }
 
@@ -2015,6 +2342,16 @@ function applyUpgrade(key) {
   }
   if (key === "double-tap") {
     upgrades.doubleTap = Math.min(upgrades.doubleTap + 1, 5);
+  }
+  if (key === "antivirus") {
+    upgrades.antivirus = 1;
+    if (antivirusIcon && antivirusIcon.classList.contains("hidden")) {
+      antivirusIcon.classList.remove("hidden");
+      placeInstalledIcon(antivirusIcon, 0);
+    }
+  }
+  if (key === "antivirus-autosolve") {
+    upgrades.antivirusAutoSolve = 1;
   }
   saveCurrentSlot();
   refreshUpgrades();
@@ -2061,6 +2398,12 @@ function getUpgradeLevel(key) {
   }
   if (key === "double-tap") {
     return upgrades.doubleTap;
+  }
+  if (key === "antivirus") {
+    return upgrades.antivirus;
+  }
+  if (key === "antivirus-autosolve") {
+    return upgrades.antivirusAutoSolve;
   }
   return 0;
 }
@@ -2451,10 +2794,99 @@ if (restoreSelectedApp) {
 if (logoutButton) {
   logoutButton.addEventListener("click", () => {
     stopSong();
+    if (virusInterval) { clearInterval(virusInterval); virusInterval = null; }
     desktop.classList.add("hidden");
     openLoginScreen();
   });
 }
+
+
+if (loginBackButton) {
+  loginBackButton.addEventListener("click", () => {
+    loginScreen.classList.add("hidden");
+    titleOverlay.classList.remove("hidden");
+  });
+}
+
+if (openAchievementsWindow && achievementsWindow) {
+  openAchievementsWindow.addEventListener("click", () => {
+    showWindow(achievementsWindow);
+  });
+}
+
+document.querySelectorAll("[data-ach-filter]").forEach((button) => {
+  button.addEventListener("click", () => {
+    achievementFilter = button.dataset.achFilter;
+    document.querySelectorAll("[data-ach-filter]").forEach((other) => {
+      other.classList.toggle("active", other === button);
+    });
+    renderAchievements();
+  });
+});
+
+document.querySelectorAll("[data-audio-step]").forEach((button) => {
+  button.addEventListener("click", () => {
+    const kind = button.dataset.audioStep;
+    const delta = Number(button.dataset.step || 0);
+    const map = { master: masterVolume, bg: musicVolume, sfx: sfxVolume };
+    setVolume(kind, map[kind] + delta);
+  });
+});
+
+if (masterVolumeInput) {
+  masterVolumeInput.addEventListener("change", () => setVolume("master", masterVolumeInput.value));
+}
+if (bgVolumeInput) {
+  bgVolumeInput.addEventListener("change", () => setVolume("bg", bgVolumeInput.value));
+}
+if (sfxVolumeInput) {
+  sfxVolumeInput.addEventListener("change", () => setVolume("sfx", sfxVolumeInput.value));
+}
+
+if (antivirusIcon) {
+  antivirusIcon.addEventListener("click", () => {
+    if (wasIconDragged(antivirusIcon)) return;
+    showWindow(antivirusWindow);
+  });
+}
+
+if (pipeRotate) {
+  pipeRotate.addEventListener("click", () => {
+    if (!pipeGame || pipeGame.selectedIndex === null) return;
+    const cell = pipeGame.cells[pipeGame.selectedIndex];
+    if (!cell) return;
+    cell.rot = ((cell.rot || 0) + 90) % 360;
+    renderPipeGrid();
+  });
+}
+
+if (pipeCheck) {
+  pipeCheck.addEventListener("click", () => {
+    if (checkPipeSolved()) {
+      completeThreatEvent(false);
+    } else {
+      pipeStatus.textContent = "Path incomplete. Keep connecting pipes.";
+    }
+  });
+}
+
+document.querySelectorAll("[data-pipe-type]").forEach((button) => {
+  button.addEventListener("click", () => {
+    if (!pipeGame) return;
+    pipeGame.selectedType = button.dataset.pipeType;
+    document.querySelectorAll("[data-pipe-type]").forEach((other) => {
+      other.classList.toggle("active", other === button);
+    });
+  });
+});
+
+document.querySelectorAll(".icon").forEach((iconEl) => {
+  iconEl.addEventListener("click", () => {
+    if (!iconEl.id || virusState.pendingIconId !== iconEl.id) return;
+    const windowEl = getWindowForIcon(iconEl.id);
+    setTimeout(() => maybeSpawnVirusNode(windowEl), 120);
+  });
+});
 
 deleteSaveButton.addEventListener("click", deleteSaveData);
 

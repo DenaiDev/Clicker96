@@ -41,6 +41,7 @@
 
     <div class="login-screen hidden" id="loginScreen">
       <div class="login-card">
+        <button id="loginBackButton" class="login-back">&lt; Back</button>
         <div class="avatar"></div>
         <p class="login-label">User: player01</p>
         <input
@@ -96,6 +97,10 @@
         <button class="icon" id="desktopSettingsIcon">
           <span class="icon-image cog"></span>
           Settings
+        </button>
+        <button class="icon hidden" id="antivirusIcon" data-deletable="true">
+          <span class="icon-image antivirus"></span>
+          Antivirus
         </button>
         <button class="icon" id="trashIcon">
           <span class="icon-image trash"></span>
@@ -265,6 +270,22 @@
                   Buy - $120
                 </button>
               </li>
+              <li>
+                <div>
+                  <strong>Antivirus Core</strong>
+                  <p class="small">Unlock Antivirus app to auto-eliminate nodes</p>
+                  <p class="small">One-time unlock</p>
+                </div>
+                <button class="retry upgrade" data-upgrade="antivirus" data-cost="180">Buy - $180</button>
+              </li>
+              <li>
+                <div>
+                  <strong>Antivirus Autopurge</strong>
+                  <p class="small">Antivirus auto-solves pipe threats</p>
+                  <p class="small">One-time unlock</p>
+                </div>
+                <button class="retry upgrade" data-upgrade="antivirus-autosolve" data-cost="420">Buy - $420</button>
+              </li>
             </ul>
           </div>
           <div class="tab-content hidden" data-tab-content="cosmetics">
@@ -313,6 +334,11 @@
           <section class="settings-content">
             <div class="tab-content" data-settings-content="audio">
               <p class="small" id="audioStatus">Master audio enabled.</p>
+              <div class="audio-controls">
+                <div class="audio-row"><span>Master</span><button data-audio-step="master" data-step="-0.1">-</button><input id="masterVolumeInput" type="number" min="0" max="1" step="0.05" value="1" /><button data-audio-step="master" data-step="0.1">+</button></div>
+                <div class="audio-row"><span>BG</span><button data-audio-step="bg" data-step="-0.1">-</button><input id="bgVolumeInput" type="number" min="0" max="1" step="0.05" value="0.5" /><button data-audio-step="bg" data-step="0.1">+</button></div>
+                <div class="audio-row"><span>SFX</span><button data-audio-step="sfx" data-step="-0.1">-</button><input id="sfxVolumeInput" type="number" min="0" max="1" step="0.05" value="0.4" /><button data-audio-step="sfx" data-step="0.1">+</button></div>
+              </div>
               <div class="confirm-actions">
                 <button id="toggleAudioButton">Toggle Audio</button>
               </div>
@@ -321,8 +347,8 @@
               <p class="small">Future graphics options go here (filters, glow, CRT, etc.).</p>
             </div>
             <div class="tab-content hidden" data-settings-content="achievements">
-              <p class="small">Unlocked achievements show full details.</p>
-              <ul class="achievement-list" id="achievementList"></ul>
+              <p class="small">Open the dedicated achievement viewer for easier browsing.</p>
+              <button id="openAchievementsWindow">Open Achievement Viewer</button>
             </div>
           </section>
         </div>
@@ -336,6 +362,50 @@
         <div class="window-body">
           <p class="small">Place or remove your purchased decor.</p>
           <ul class="cosmetic-list" id="ownedCosmetics"></ul>
+        </div>
+      </div>
+
+      
+      <div class="window hidden" id="achievementsWindow">
+        <header class="window-header">
+          <span>Achievements</span>
+          <button class="close" data-close="achievementsWindow">✕</button>
+        </header>
+        <div class="window-body">
+          <div class="achievement-toolbar">
+            <button class="tab active" data-ach-filter="all">All</button>
+            <button class="tab" data-ach-filter="unlocked">Unlocked</button>
+            <button class="tab" data-ach-filter="locked">Locked</button>
+          </div>
+          <ul class="achievement-list scroll-list" id="achievementList"></ul>
+        </div>
+      </div>
+
+      <div class="window hidden" id="antivirusWindow">
+        <header class="window-header">
+          <span>Antivirus</span>
+          <button class="close" data-close="antivirusWindow">✕</button>
+        </header>
+        <div class="window-body">
+          <p class="small" id="antivirusStatus">No threat detected.</p>
+        </div>
+      </div>
+
+      <div class="window hidden" id="virusPipeWindow">
+        <header class="window-header">
+          <span>Threat Elimination Grid</span>
+          <button class="close" data-close="virusPipeWindow">✕</button>
+        </header>
+        <div class="window-body">
+          <p class="small" id="pipeTimer">Time: 60s</p>
+          <div class="confirm-actions">
+            <button class="tab active" data-pipe-type="line">Line</button>
+            <button class="tab" data-pipe-type="corner">Corner</button>
+            <button id="pipeRotate">Rotate Selected</button>
+            <button id="pipeCheck">Check Path</button>
+          </div>
+          <div class="pipe-grid" id="pipeGrid"></div>
+          <p class="small" id="pipeStatus">Connect Start to End before time runs out.</p>
         </div>
       </div>
 
@@ -397,6 +467,7 @@
     <div class="toast hidden" id="toast">
       <div class="toast-title" id="toastTitle"></div>
       <div class="toast-body" id="toastBody"></div>
+      <button class="hidden" id="toastActionButton"></button>
     </div>
 
     <div class="context-menu hidden" id="iconContextMenu">

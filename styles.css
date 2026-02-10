@@ -54,6 +54,15 @@ body {
   color: #e8e8f0;
   display: grid;
   gap: 0.8rem;
+  position: relative;
+}
+
+.login-back {
+  position: absolute;
+  top: 0.5rem;
+  left: 0.5rem;
+  font-size: 0.75rem;
+  padding: 0.2rem 0.45rem;
 }
 
 .title-buttons {
@@ -445,6 +454,85 @@ body {
   min-width: 0;
 }
 
+
+.audio-controls {
+  display: grid;
+  gap: 0.5rem;
+  margin: 0.5rem 0;
+}
+
+.audio-row {
+  display: grid;
+  grid-template-columns: 54px 32px 1fr 32px;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.audio-row input {
+  text-align: center;
+}
+
+.achievement-toolbar {
+  display: flex;
+  gap: 0.4rem;
+}
+
+.scroll-list {
+  max-height: 195px;
+  overflow-y: auto;
+  padding-right: 0.35rem;
+}
+
+.icon-image.antivirus {
+  background: linear-gradient(180deg, #74f2ca, #1b8e6d);
+}
+
+.icon.infected .icon-image {
+  animation: icon-jitter 0.22s linear 2;
+}
+
+.virus-node {
+  position: absolute;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: radial-gradient(circle, #8eff7a 20%, #2a6f2f 80%);
+  border: 2px solid #c6ffbf;
+  cursor: crosshair;
+}
+
+.pipe-grid {
+  margin-top: 0.5rem;
+  display: grid;
+  grid-template-columns: repeat(6, 34px);
+  gap: 4px;
+}
+
+.pipe-cell {
+  width: 34px;
+  height: 34px;
+  border: 1px solid #506084;
+  background: #0f1728;
+  font-size: 0.7rem;
+  color: #c7d4ef;
+}
+
+.pipe-cell.selected {
+  outline: 2px solid #86a8ff;
+}
+
+.pipe-cell.start,
+.pipe-cell.end {
+  background: #263d6f;
+  font-weight: 700;
+}
+
+@keyframes icon-jitter {
+  0%, 100% { transform: translate(0, 0); }
+  25% { transform: translate(-2px, 1px); }
+  75% { transform: translate(2px, -1px); }
+}
+
 .logout-button {
   margin-top: 0.6rem;
   background: #6b1d1d;
@@ -586,6 +674,11 @@ body.cosmetic-sunset {
 
 .toast.hidden {
   display: none;
+}
+
+.toast button {
+  margin-top: 0.5rem;
+  width: 100%;
 }
 
 .combo-meter {
