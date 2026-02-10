@@ -160,6 +160,7 @@ let musicVolume = 0.5;
 let achievementFilter = "all";
 let virusState = { pendingIconId: null, activeNodeWindowId: null, nodeHp: 0, kills: 0, threatPending: false };
 let virusInterval = null;
+let virusJitterTimeout = null;
 let pipeGame = null;
 let pendingDesktopContextPos = null;
 let activeNoteIcon = null;
@@ -767,6 +768,7 @@ function loadSlot() {
     sfxVolume = 0.4;
     musicVolume = 0.5;
     virusState = { pendingIconId: null, activeNodeWindowId: null, nodeHp: 0, kills: 0, threatPending: false };
+    clearPendingVirusJitter();
     updateMoneyDisplay();
     renderDownloads();
     renderTrash();
@@ -1764,6 +1766,30 @@ function jitterIcon(icon, times = 2) {
   tick();
 }
 
+function clearPendingVirusJitter() {
+  if (virusJitterTimeout) {
+    clearTimeout(virusJitterTimeout);
+    virusJitterTimeout = null;
+  }
+}
+
+function schedulePendingVirusJitter(iconId) {
+  clearPendingVirusJitter();
+  const run = () => {
+    if (!virusState.pendingIconId || virusState.pendingIconId !== iconId) {
+      clearPendingVirusJitter();
+      return;
+    }
+    const icon = document.getElementById(iconId);
+    if (icon && !icon.classList.contains("hidden")) {
+      jitterIcon(icon, 1);
+    }
+    const nextDelay = 5000 + Math.floor(Math.random() * 5001);
+    virusJitterTimeout = setTimeout(run, nextDelay);
+  };
+  run();
+}
+
 function pickVirusIcon() {
   const candidates = Array.from(document.querySelectorAll(".icon:not(.hidden)"))
     .filter((el) => el.id && el.id !== "antivirusIcon");
@@ -1773,6 +1799,9 @@ function pickVirusIcon() {
 
 function startVirusCycle() {
   if (virusInterval) clearInterval(virusInterval);
+  if (virusState.pendingIconId) {
+    schedulePendingVirusJitter(virusState.pendingIconId);
+  }
   virusInterval = setInterval(() => {
     if (virusState.pendingIconId) {
       return;
@@ -1787,7 +1816,7 @@ function startVirusCycle() {
       return;
     }
     virusState.pendingIconId = icon.id;
-    jitterIcon(icon, 1 + Math.floor(Math.random() * 2));
+    schedulePendingVirusJitter(icon.id);
     saveCurrentSlot();
   }, 300000);
 }
@@ -1824,6 +1853,7 @@ function maybeSpawnVirusNode(windowEl) {
       infectedIcon.classList.remove("infected");
     }
     virusState.pendingIconId = null;
+    clearPendingVirusJitter();
     virusState.activeNodeWindowId = null;
     virusState.kills += 1;
     maybeAward("cleaner", "Cleaner", "Destroyed your first virus node.");
@@ -2953,6 +2983,7 @@ if (logoutButton) {
   logoutButton.addEventListener("click", () => {
     stopSong();
     if (virusInterval) { clearInterval(virusInterval); virusInterval = null; }
+    clearPendingVirusJitter();
     desktop.classList.add("hidden");
     openLoginScreen();
   });
