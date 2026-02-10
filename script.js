@@ -47,7 +47,6 @@ const trashIcon = document.getElementById("trashIcon");
 const trashWindow = document.getElementById("trashWindow");
 const trashList = document.getElementById("trashList");
 const trashStatus = document.getElementById("trashStatus");
-const restoreSelectedApp = document.getElementById("restoreSelectedApp");
 const taskbarWindows = document.getElementById("taskbarWindows");
 const toast = document.getElementById("toast");
 const toastTitle = document.getElementById("toastTitle");
@@ -107,6 +106,11 @@ const jukeboxTimeDuration = document.getElementById("jukeboxTimeDuration");
 const jukeboxStop = document.getElementById("jukeboxStop");
 const iconContextMenu = document.getElementById("iconContextMenu");
 const deleteIconButton = document.getElementById("deleteIconButton");
+const desktopContextMenu = document.getElementById("desktopContextMenu");
+const newNoteButton = document.getElementById("newNoteButton");
+const refreshDesktopButton = document.getElementById("refreshDesktopButton");
+const notepadWindow = document.getElementById("notepadWindow");
+const notepadText = document.getElementById("notepadText");
 const levelEstimator = document.getElementById("level-estimator");
 const levelBarTuner = document.getElementById("level-bar-tuner");
 const levelAutoClick = document.getElementById("level-auto-click");
@@ -157,6 +161,10 @@ let achievementFilter = "all";
 let virusState = { pendingIconId: null, activeNodeWindowId: null, nodeHp: 0, kills: 0, threatPending: false };
 let virusInterval = null;
 let pipeGame = null;
+let pendingDesktopContextPos = null;
+let activeNoteIcon = null;
+let noteCounter = 0;
+let contextMenuTargetEl = null;
 let jukeboxUiInterval = null;
 let upgrades = {
   estimator: 0,
@@ -313,6 +321,9 @@ function hideWindow(windowEl) {
   windowEl.classList.add("hidden");
   if (windowEl.id === "virusPipeWindow" && pipeGame && pipeGame.timer) {
     clearInterval(pipeGame.timer);
+  }
+  if (windowEl.id === "notepadWindow") {
+    activeNoteIcon = null;
   }
   openedWindows.delete(windowEl.id);
   renderTaskbarWindows();
@@ -763,6 +774,9 @@ function loadSlot() {
     renderAchievements();
     applyDesktopState(null);
     jukeboxIcon.classList.remove("hidden");
+    if (isSongUnlocked("w96-ambient")) {
+      playSong("w96-ambient");
+    }
     isLoadingSlot = false;
     return false;
   }
@@ -819,6 +833,8 @@ function loadSlot() {
   updateAudioStatus();
   if (data.currentTrackId && isSongUnlocked(data.currentTrackId)) {
     playSong(data.currentTrackId);
+  } else if (isSongUnlocked("w96-ambient")) {
+    playSong("w96-ambient");
   }
   isLoadingSlot = false;
   return true;
@@ -978,9 +994,7 @@ function renderTrash() {
   trashedApps.forEach((item) => {
     const li = document.createElement("li");
     const row = document.createElement("div");
-    row.className = "confirm-actions";
-    row.style.marginTop = "0";
-    row.style.justifyContent = "space-between";
+    row.className = "trash-app-row";
     const title = document.createElement("span");
     title.textContent = `${item.label} (app)`;
     const restore = document.createElement("button");
@@ -998,9 +1012,6 @@ function renderTrash() {
   trashStatus.textContent = hasAny
     ? "Right-click the Trash icon to empty."
     : "Trash is empty.";
-  if (restoreSelectedApp) {
-    restoreSelectedApp.disabled = trashedApps.length === 0;
-  }
 }
 
 function moveToTrash(id, type) {
@@ -1080,6 +1091,54 @@ function setupIconDragging() {
   });
 }
 
+
+function openNoteIcon(icon) {
+  activeNoteIcon = icon;
+  if (notepadText) {
+    notepadText.value = icon.dataset.noteContent || "";
+  }
+  showWindow(notepadWindow);
+}
+
+function createNoteIcon(state = {}, placeFromPointer = null) {
+  if (!iconsContainer) {
+    return null;
+  }
+  noteCounter += 1;
+  const icon = document.createElement("button");
+  icon.className = "icon note-icon";
+  icon.dataset.deletable = "true";
+  icon.dataset.noteId = state.noteId || `note-${Date.now()}-${noteCounter}`;
+  icon.dataset.noteContent = state.content || "";
+  icon.innerHTML = `<span class="icon-image text"></span>${state.label || `Note ${noteCounter}`}`;
+  icon.addEventListener("click", () => {
+    if (wasIconDragged(icon)) {
+      return;
+    }
+    openNoteIcon(icon);
+  });
+  if (state.x !== undefined && state.y !== undefined) {
+    icon.dataset.gridX = String(state.x);
+    icon.dataset.gridY = String(state.y);
+  }
+  iconsContainer.appendChild(icon);
+  registerIcon(icon);
+  if (placeFromPointer) {
+    const rect = iconsContainer.getBoundingClientRect();
+    const gx = Math.max(0, Math.round((placeFromPointer.x - rect.left) / gridSize.x));
+    const gy = Math.max(0, Math.round((placeFromPointer.y - rect.top) / gridSize.y));
+    placeIcon(icon, gx, gy, false);
+  } else if (state.x !== undefined && state.y !== undefined) {
+    placeIcon(icon, Number(state.x), Number(state.y), false);
+  } else {
+    placeInstalledIcon(icon, 1);
+  }
+  if (!isLoadingSlot && !isBootstrapping) {
+    saveCurrentSlot();
+  }
+  return icon;
+}
+
 function registerIcon(icon, index = 0) {
   icon.style.position = "absolute";
   if (!icon.dataset.iconKey) {
@@ -1099,6 +1158,7 @@ function registerIcon(icon, index = 0) {
     if (event.button !== 0) {
       return;
     }
+    event.preventDefault();
     icon.dataset.dragging = "false";
     const rect = icon.getBoundingClientRect();
     const halfW = rect.width / 2;
@@ -1106,6 +1166,9 @@ function registerIcon(icon, index = 0) {
     const startX = event.clientX;
     const startY = event.clientY;
     let moved = false;
+
+    icon.style.left = `${event.clientX - halfW}px`;
+    icon.style.top = `${event.clientY - halfH}px`;
 
     function onMove(moveEvent) {
       if (
@@ -1148,11 +1211,17 @@ function wasIconDragged(icon) {
   return false;
 }
 
-function openIconContextMenu(icon, x, y) {
+function openIconContextMenu(icon, x, y, mode = "trash-app") {
   if (!iconContextMenu) {
     return;
   }
+  contextMenuTargetEl = icon;
   iconContextMenu.dataset.targetKey = icon.dataset.iconKey || "";
+  iconContextMenu.dataset.mode = mode;
+  if (deleteIconButton) {
+    deleteIconButton.textContent = mode === "store-decoration" ? "Store Decoration" : "Delete App";
+  }
+  closeDesktopContextMenu();
   iconContextMenu.style.left = `${x}px`;
   iconContextMenu.style.top = `${y}px`;
   iconContextMenu.classList.remove("hidden");
@@ -1164,6 +1233,39 @@ function closeIconContextMenu() {
   }
   iconContextMenu.classList.add("hidden");
   delete iconContextMenu.dataset.targetKey;
+  delete iconContextMenu.dataset.mode;
+  contextMenuTargetEl = null;
+}
+
+function openDesktopContextMenu(x, y) {
+  if (!desktopContextMenu) {
+    return;
+  }
+  pendingDesktopContextPos = { x, y };
+  desktopContextMenu.style.left = `${x}px`;
+  desktopContextMenu.style.top = `${y}px`;
+  desktopContextMenu.classList.remove("hidden");
+}
+
+function closeDesktopContextMenu() {
+  if (!desktopContextMenu) {
+    return;
+  }
+  desktopContextMenu.classList.add("hidden");
+}
+
+function refreshDesktopIcons() {
+  const icons = Array.from(document.querySelectorAll(".icon:not(.hidden)"));
+  if (desktop) {
+    desktop.classList.add("desktop-refreshing");
+  }
+  icons.forEach((icon) => icon.classList.add("refresh-flash"));
+  setTimeout(() => {
+    icons.forEach((icon) => icon.classList.remove("refresh-flash"));
+    if (desktop) {
+      desktop.classList.remove("desktop-refreshing");
+    }
+  }, 500);
 }
 
 function trashAppIcon(icon) {
@@ -1175,6 +1277,8 @@ function trashAppIcon(icon) {
     datasetGridX: Number(icon.dataset.gridX || 0),
     datasetGridY: Number(icon.dataset.gridY || 0),
     isClone: icon.classList.contains("clicker-clone"),
+    isNote: icon.classList.contains("note-icon"),
+    noteContent: icon.dataset.noteContent || "",
   };
   trashedApps.push(appRecord);
   if (icon.classList.contains("clicker-clone")) {
@@ -1192,7 +1296,15 @@ function restoreAppFromTrash(appId) {
     return;
   }
   const app = trashedApps.splice(idx, 1)[0];
-  if (app.isClone) {
+  if (app.isNote) {
+    createNoteIcon({
+      x: app.datasetGridX,
+      y: app.datasetGridY,
+      label: app.label,
+      content: app.noteContent,
+      noteId: app.id,
+    });
+  } else if (app.isClone) {
     const icon = document.createElement("button");
     icon.className = app.className || "icon clicker-clone";
     icon.dataset.deletable = "true";
@@ -1228,10 +1340,20 @@ function deleteIconTarget() {
     icon = document.querySelector(`[data-icon-key="${iconContextMenu.dataset.targetKey}"]`);
   }
   if (!icon) {
+    icon = contextMenuTargetEl;
+  }
+  if (!icon) {
     closeIconContextMenu();
     return;
   }
-  trashAppIcon(icon);
+  if (iconContextMenu.dataset.mode === "store-decoration") {
+    const itemId = icon.dataset.cosmeticId;
+    if (itemId) {
+      removeCosmetic(itemId);
+    }
+  } else {
+    trashAppIcon(icon);
+  }
   closeIconContextMenu();
 }
 
@@ -1354,6 +1476,7 @@ function ensureIconPlacement(icon) {
 function collectDesktopState() {
   const baseIcons = {};
   const clickerClones = [];
+  const notes = [];
   document.querySelectorAll(".icon").forEach((icon) => {
     const state = {
       x: Number(icon.dataset.gridX || 0),
@@ -1367,9 +1490,16 @@ function collectDesktopState() {
         ...state,
         label: icon.textContent.trim(),
       });
+    } else if (icon.classList.contains("note-icon")) {
+      notes.push({
+        ...state,
+        label: icon.textContent.trim(),
+        content: icon.dataset.noteContent || "",
+        noteId: icon.dataset.noteId || "",
+      });
     }
   });
-  return { baseIcons, clickerClones };
+  return { baseIcons, clickerClones, notes };
 }
 
 function createClickerIconClone(state, index) {
@@ -1393,12 +1523,16 @@ function createClickerIconClone(state, index) {
 
 function applyDesktopState(state) {
   const baseIcons = state?.baseIcons ?? {};
-  document.querySelectorAll(".icon.clicker-clone").forEach((icon) => {
+  document.querySelectorAll(".icon.clicker-clone, .icon.note-icon").forEach((icon) => {
     icon.remove();
   });
   const clones = state?.clickerClones ?? [];
   clones.forEach((cloneState, index) => {
     createClickerIconClone(cloneState, index + 2);
+  });
+  const notes = state?.notes ?? [];
+  notes.forEach((noteState) => {
+    createNoteIcon(noteState);
   });
   Object.keys(iconDefaults).forEach((id) => {
     const icon = document.getElementById(id);
@@ -1875,6 +2009,10 @@ function createDecorationElement(item) {
       el.classList.toggle("spin");
     }
   });
+  el.addEventListener("contextmenu", (event) => {
+    event.preventDefault();
+    openIconContextMenu(el, event.clientX, event.clientY, "store-decoration");
+  });
   enableDecorationDragging(el);
   return el;
 }
@@ -1884,6 +2022,7 @@ function enableDecorationDragging(el) {
     if (event.button !== 0) {
       return;
     }
+    event.preventDefault();
     const rect = el.getBoundingClientRect();
     const offsetX = event.clientX - rect.left;
     const offsetY = event.clientY - rect.top;
@@ -2195,10 +2334,16 @@ function renderJukeboxTracks() {
     info.innerHTML = `<strong>${song.title}</strong>`;
     const button = document.createElement("button");
     button.className = "retry";
-    button.textContent = currentTrack && currentTrack.id === song.id ? "Playing" : "Play";
-    button.disabled = currentTrack && currentTrack.id === song.id;
+    const isCurrent = currentTrack && currentTrack.id === song.id;
+    button.textContent = isCurrent ? "Stop" : "Play";
+    button.classList.toggle("playing-stop", !!isCurrent);
     button.addEventListener("click", () => {
-      playSong(song.id);
+      const active = currentTrack && currentTrack.id === song.id;
+      if (active) {
+        stopSong();
+      } else {
+        playSong(song.id);
+      }
     });
     li.appendChild(info);
     li.appendChild(button);
@@ -2206,7 +2351,7 @@ function renderJukeboxTracks() {
   });
   if (jukeboxNowPlaying) {
     const song = currentTrack ? getSong(currentTrack.id) : null;
-    jukeboxNowPlaying.textContent = song ? song.title : "None";
+    jukeboxNowPlaying.textContent = song ? song.title : "W96 Ambient";
   }
 }
 
@@ -2781,16 +2926,6 @@ if (toggleAudioButton) {
   });
 }
 
-if (restoreSelectedApp) {
-  restoreSelectedApp.addEventListener("click", () => {
-    if (trashedApps.length === 0) {
-      return;
-    }
-    const last = trashedApps[trashedApps.length - 1];
-    restoreAppFromTrash(last.id);
-  });
-}
-
 if (logoutButton) {
   logoutButton.addEventListener("click", () => {
     stopSong();
@@ -2860,6 +2995,16 @@ if (pipeRotate) {
   });
 }
 
+if (notepadText) {
+  notepadText.addEventListener("input", () => {
+    if (!activeNoteIcon) {
+      return;
+    }
+    activeNoteIcon.dataset.noteContent = notepadText.value;
+    saveCurrentSlot();
+  });
+}
+
 if (pipeCheck) {
   pipeCheck.addEventListener("click", () => {
     if (checkPipeSolved()) {
@@ -2887,6 +3032,39 @@ document.querySelectorAll(".icon").forEach((iconEl) => {
     setTimeout(() => maybeSpawnVirusNode(windowEl), 120);
   });
 });
+
+
+if (desktop) {
+  desktop.addEventListener("contextmenu", (event) => {
+    const isOnIcon = event.target.closest(".icon");
+    const isOnWindow = event.target.closest(".window");
+    const isOnDecoration = event.target.closest(".decoration");
+    if (isOnIcon || isOnWindow || isOnDecoration) {
+      return;
+    }
+    event.preventDefault();
+    closeIconContextMenu();
+    openDesktopContextMenu(event.clientX, event.clientY);
+  });
+}
+
+if (newNoteButton) {
+  newNoteButton.addEventListener("click", () => {
+    if (pendingDesktopContextPos) {
+      createNoteIcon({}, pendingDesktopContextPos);
+    } else {
+      createNoteIcon();
+    }
+    closeDesktopContextMenu();
+  });
+}
+
+if (refreshDesktopButton) {
+  refreshDesktopButton.addEventListener("click", () => {
+    refreshDesktopIcons();
+    closeDesktopContextMenu();
+  });
+}
 
 deleteSaveButton.addEventListener("click", deleteSaveData);
 
@@ -2939,13 +3117,16 @@ if (deleteIconButton) {
 }
 
 document.addEventListener("click", (event) => {
-  if (!iconContextMenu || iconContextMenu.classList.contains("hidden")) {
-    return;
+  if (iconContextMenu && !iconContextMenu.classList.contains("hidden")) {
+    if (!event.target.closest("#iconContextMenu")) {
+      closeIconContextMenu();
+    }
   }
-  if (event.target.closest("#iconContextMenu")) {
-    return;
+  if (desktopContextMenu && !desktopContextMenu.classList.contains("hidden")) {
+    if (!event.target.closest("#desktopContextMenu")) {
+      closeDesktopContextMenu();
+    }
   }
-  closeIconContextMenu();
 });
 
 document.addEventListener("click", (event) => {

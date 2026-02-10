@@ -256,7 +256,7 @@ body {
   border: 1px solid rgba(0, 0, 0, 0.4);
 }
 
-.window {
+ .window {
   position: absolute;
   top: 120px;
   left: 240px;
@@ -265,6 +265,10 @@ body {
   border: 2px solid #2f3f5e;
   box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
   z-index: 3;
+}
+
+.settings-window {
+  width: min(620px, 94vw);
 }
 
 .window-header {
@@ -463,13 +467,14 @@ body {
 
 .audio-row {
   display: grid;
-  grid-template-columns: 54px 32px 1fr 32px;
+  grid-template-columns: 68px 34px minmax(88px, 110px) 34px;
   align-items: center;
   gap: 0.4rem;
 }
 
 .audio-row input {
   text-align: center;
+  min-width: 88px;
 }
 
 .achievement-toolbar {
@@ -748,4 +753,40 @@ body.cosmetic-sunset {
 .small {
   font-size: 0.75rem;
   opacity: 0.8;
+}
+
+
+#trashList {
+  max-height: 220px;
+  overflow-y: auto;
+  padding-right: 0.3rem;
+}
+
+.trash-app-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.notepad-text {
+  width: 100%;
+  min-height: 220px;
+  resize: vertical;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.playing-stop {
+  background: #7a1f1f !important;
+  color: #ffe2e2 !important;
+}
+
+.desktop-refreshing,
+.desktop-refreshing * {
+  cursor: wait !important;
+}
+
+.icon.refresh-flash {
+  opacity: 0;
 }

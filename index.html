@@ -319,9 +319,9 @@
         </div>
       </div>
 
-      <div class="window hidden" id="desktopSettingsWindow">
+      <div class="window hidden settings-window" id="desktopSettingsWindow">
         <header class="window-header">
-          <span>Desktop Settings</span>
+          <span>Settings</span>
           <button class="close" data-close="desktopSettingsWindow">✕</button>
         </header>
         <div class="window-body desktop-settings-layout">
@@ -408,6 +408,16 @@
           <p class="small" id="pipeStatus">Connect Start to End before time runs out.</p>
         </div>
       </div>
+      
+      <div class="window hidden" id="notepadWindow">
+        <header class="window-header">
+          <span>Notepad</span>
+          <button class="close" data-close="notepadWindow">✕</button>
+        </header>
+        <div class="window-body">
+          <textarea id="notepadText" class="notepad-text" placeholder="Write your note..."></textarea>
+        </div>
+      </div>
 
       <div class="window hidden" id="trashWindow">
         <header class="window-header">
@@ -417,7 +427,6 @@
         <div class="window-body">
           <ul class="file-list" id="trashList"></ul>
           <p class="small" id="trashStatus">Right-click the Trash icon to empty.</p>
-          <button class="retry" id="restoreSelectedApp">Restore Last App</button>
         </div>
       </div>
 
@@ -472,6 +481,11 @@
 
     <div class="context-menu hidden" id="iconContextMenu">
       <button id="deleteIconButton">Delete App</button>
+    </div>
+
+    <div class="context-menu hidden" id="desktopContextMenu">
+      <button id="newNoteButton">New Note</button>
+      <button id="refreshDesktopButton">Refresh</button>
     </div>
 
     <script src="script.js"></script>
