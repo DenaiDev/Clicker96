@@ -1753,6 +1753,9 @@ function jitterIcon(icon, times = 2) {
     icon.classList.remove("infected");
     void icon.offsetWidth;
     icon.classList.add("infected");
+    setTimeout(() => {
+      icon.classList.remove("infected");
+    }, 260);
     count += 1;
     if (count < times) {
       setTimeout(tick, 2000);
@@ -1814,6 +1817,12 @@ function maybeSpawnVirusNode(windowEl) {
     node.remove();
     totalMoney += 1;
     updateMoneyDisplay();
+    const infectedIcon = virusState.pendingIconId
+      ? document.getElementById(virusState.pendingIconId)
+      : null;
+    if (infectedIcon) {
+      infectedIcon.classList.remove("infected");
+    }
     virusState.pendingIconId = null;
     virusState.activeNodeWindowId = null;
     virusState.kills += 1;
