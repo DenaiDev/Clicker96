@@ -1358,16 +1358,25 @@ function applyDesktopState(state) {
     const saved = baseIcons[id];
     if (saved) {
       icon.classList.toggle("hidden", saved.hidden);
-      placeIcon(icon, saved.x, saved.y, false);
+      setIconPosition(icon, Number(saved.x) || 0, Number(saved.y) || 0);
       return;
     }
-    if (id === "downloadsIcon" && downloads.length > 0) {
-      icon.classList.remove("hidden");
+
+    // Fallback for legacy/incomplete desktopState: avoid global repacking.
+    const defaults = iconDefaults[id] || { x: 0, y: 0 };
+    const existingX = Number(icon.dataset.gridX);
+    const existingY = Number(icon.dataset.gridY);
+    const x = Number.isFinite(existingX) ? existingX : defaults.x;
+    const y = Number.isFinite(existingY) ? existingY : defaults.y;
+
+    if (id === "downloadsIcon") {
+      icon.classList.toggle("hidden", downloads.length === 0);
     }
-    if (id === "casinoIcon" && mailStage >= 3) {
-      icon.classList.remove("hidden");
+    if (id === "casinoIcon") {
+      icon.classList.toggle("hidden", mailStage < 3);
     }
-    ensureIconPlacement(icon);
+
+    setIconPosition(icon, x, y);
   });
 }
 
