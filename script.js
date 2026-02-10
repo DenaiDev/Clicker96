@@ -46,6 +46,7 @@ const trashIcon = document.getElementById("trashIcon");
 const trashWindow = document.getElementById("trashWindow");
 const trashList = document.getElementById("trashList");
 const trashStatus = document.getElementById("trashStatus");
+const restoreSelectedApp = document.getElementById("restoreSelectedApp");
 const taskbarWindows = document.getElementById("taskbarWindows");
 const toast = document.getElementById("toast");
 const toastTitle = document.getElementById("toastTitle");
@@ -83,6 +84,10 @@ const jukeboxIcon = document.getElementById("jukeboxIcon");
 const jukeboxWindow = document.getElementById("jukeboxWindow");
 const jukeboxTrackList = document.getElementById("jukeboxTrackList");
 const jukeboxNowPlaying = document.getElementById("jukeboxNowPlaying");
+const jukeboxDisc = document.getElementById("jukeboxDisc");
+const jukeboxProgress = document.getElementById("jukeboxProgress");
+const jukeboxTimeCurrent = document.getElementById("jukeboxTimeCurrent");
+const jukeboxTimeDuration = document.getElementById("jukeboxTimeDuration");
 const jukeboxStop = document.getElementById("jukeboxStop");
 const iconContextMenu = document.getElementById("iconContextMenu");
 const deleteIconButton = document.getElementById("deleteIconButton");
@@ -92,6 +97,8 @@ const levelAutoClick = document.getElementById("level-auto-click");
 const levelMultiWindow = document.getElementById("level-multi-window");
 const levelPayoutBoost = document.getElementById("level-payout-boost");
 const levelTimeReducer = document.getElementById("level-time-reducer");
+const levelDoubleTap = document.getElementById("level-double-tap");
+const doubleTapName = document.getElementById("doubleTapName");
 
 const clickerInstances = new Map();
 let clickerInstanceId = 0;
@@ -102,6 +109,7 @@ let currentSlot = 1;
 let bootState = "boot";
 let downloads = [];
 let trash = [];
+let trashedApps = [];
 let openedWindows = new Set();
 let achievements = [];
 let cosmetics = { owned: [], placed: {}, positions: {}, background: "default" };
@@ -109,6 +117,7 @@ let lastToastTimeout = null;
 let hasEmail = false;
 let emailTimer = null;
 let windowZ = 10;
+let windowOpenCount = 0;
 let comboMultiplier = 1;
 let comboClicks = 0;
 let comboTimeout = null;
@@ -126,6 +135,7 @@ let currentTrack = null;
 let audioEnabled = true;
 let sfxVolume = 0.4;
 let musicVolume = 0.5;
+let jukeboxUiInterval = null;
 let upgrades = {
   estimator: 0,
   barTuner: 0,
@@ -133,6 +143,7 @@ let upgrades = {
   multiWindow: 0,
   payoutBoost: 0,
   timeReducer: 0,
+  doubleTap: 0,
 };
 const wrongPasswordMessages = [
   "Access denied. Try again.",
@@ -170,6 +181,7 @@ const upgradeConfigs = {
   "multi-window": { max: null, base: 6, scale: 1.6, levelEl: levelMultiWindow },
   "payout-boost": { max: null, base: 5, scale: 2, levelEl: levelPayoutBoost },
   "time-reducer": { max: 25, base: 20, scale: 1.6, levelEl: levelTimeReducer },
+  "double-tap": { max: 5, base: 120, scale: 3.5, levelEl: levelDoubleTap },
 };
 
 const achievementConfigs = [
@@ -250,6 +262,17 @@ function updateClock() {
 }
 
 function showWindow(windowEl) {
+  if (!windowEl.dataset.positioned) {
+    const width = windowEl.offsetWidth || 340;
+    const height = windowEl.offsetHeight || 240;
+    const centerX = Math.max(16, (window.innerWidth - width) / 2);
+    const centerY = Math.max(32, (window.innerHeight - height) / 2 - 40);
+    const offset = (windowOpenCount % 8) * 24;
+    windowEl.style.left = `${centerX + offset}px`;
+    windowEl.style.top = `${centerY + offset}px`;
+    windowEl.dataset.positioned = "true";
+    windowOpenCount += 1;
+  }
   windowEl.classList.remove("hidden");
   openedWindows.add(windowEl.id);
   focusWindow(windowEl);
@@ -371,12 +394,58 @@ function playSong(songId) {
   currentTrack = { id: songId, audio };
   jukeboxNowPlaying.textContent = song.title;
   if (audio) {
-    audio.loop = true;
+    audio.loop = false;
+    audio.onended = () => {
+      stopSong();
+    };
     audio.play().catch(() => {});
   }
+  startJukeboxUiTimer();
+  updateJukeboxPlaybackUI();
   maybeAward("jukebox-on", "DJ", "Played your first music track.");
   saveCurrentSlot();
   renderJukeboxTracks();
+}
+
+function formatTime(seconds) {
+  if (!Number.isFinite(seconds) || seconds < 0) {
+    return "0:00";
+  }
+  const m = Math.floor(seconds / 60);
+  const s = Math.floor(seconds % 60);
+  return `${m}:${String(s).padStart(2, "0")}`;
+}
+
+function updateJukeboxPlaybackUI() {
+  const audio = currentTrack ? currentTrack.audio : null;
+  const current = audio ? audio.currentTime : 0;
+  const duration = audio && Number.isFinite(audio.duration) ? audio.duration : 0;
+  if (jukeboxTimeCurrent) {
+    jukeboxTimeCurrent.textContent = formatTime(current);
+  }
+  if (jukeboxTimeDuration) {
+    jukeboxTimeDuration.textContent = formatTime(duration);
+  }
+  if (jukeboxProgress) {
+    const pct = duration > 0 ? Math.min((current / duration) * 100, 100) : 0;
+    jukeboxProgress.style.width = `${pct}%`;
+  }
+  if (jukeboxDisc) {
+    jukeboxDisc.classList.toggle("spinning", !!(audio && !audio.paused));
+  }
+}
+
+function stopJukeboxUiTimer() {
+  if (jukeboxUiInterval) {
+    clearInterval(jukeboxUiInterval);
+    jukeboxUiInterval = null;
+  }
+}
+
+function startJukeboxUiTimer() {
+  stopJukeboxUiTimer();
+  jukeboxUiInterval = setInterval(updateJukeboxPlaybackUI, 250);
+  updateJukeboxPlaybackUI();
 }
 
 function stopSong() {
@@ -385,9 +454,11 @@ function stopSong() {
     currentTrack.audio.currentTime = 0;
   }
   currentTrack = null;
+  stopJukeboxUiTimer();
   if (jukeboxNowPlaying) {
     jukeboxNowPlaying.textContent = "None";
   }
+  updateJukeboxPlaybackUI();
   saveCurrentSlot();
   renderJukeboxTracks();
 }
@@ -448,7 +519,7 @@ function startInstallSequence() {
     installStatus.textContent = "Install complete. Clicker96 is ready.";
     if (clickerIcon.classList.contains("hidden")) {
       clickerIcon.classList.remove("hidden");
-      ensureIconPlacement(clickerIcon);
+      placeInstalledIcon(clickerIcon, iconDefaults.clickerIcon.x);
     } else {
       spawnClickerIcon();
     }
@@ -523,7 +594,8 @@ function nudgeProgressBar(instance) {
   totalClicks += 1;
   updateCombo();
   const tunerBoost = 1 + upgrades.barTuner * 0.05;
-  instance.startTime -= 1000 * comboMultiplier * tunerBoost;
+  const tapMultiplier = 1 + Math.min(upgrades.doubleTap, 4);
+  instance.startTime -= 1000 * comboMultiplier * tunerBoost * tapMultiplier;
   const rotate = Math.floor(Math.random() * 7) - 3;
   instance.bar.classList.remove("pop");
   void instance.bar.offsetWidth;
@@ -626,6 +698,7 @@ function loadSlot() {
     totalMoney = 0;
     downloads = [];
     trash = [];
+    trashedApps = [];
     achievements = [];
     cosmetics = { owned: [], placed: {}, positions: {}, background: "default" };
     upgrades = {
@@ -635,8 +708,10 @@ function loadSlot() {
       multiWindow: 0,
       payoutBoost: 0,
       timeReducer: 0,
+      doubleTap: 0,
     };
     casinoBets = 0;
+    upgrades.doubleTap = 0;
     unlockedSongs = ["w96-ambient"];
     currentTrack = null;
     audioEnabled = true;
@@ -655,6 +730,7 @@ function loadSlot() {
   totalMoney = data.totalMoney ?? 0;
   downloads = data.downloads ?? [];
   trash = data.trash ?? [];
+  trashedApps = data.trashedApps ?? [];
   achievements = data.achievements ?? [];
   cosmetics = data.cosmetics ?? cosmetics;
   cosmetics.owned = cosmetics.owned ?? [];
@@ -668,6 +744,7 @@ function loadSlot() {
   upgrades.multiWindow = Number(upgrades.multiWindow) || 0;
   upgrades.payoutBoost = Number(upgrades.payoutBoost) || 0;
   upgrades.timeReducer = Number(upgrades.timeReducer) || 0;
+  upgrades.doubleTap = Number(upgrades.doubleTap) || 0;
   mailStage = data.mailStage ?? 0;
   casinoBets = data.casinoBets ?? 0;
   unlockedSongs = data.unlockedSongs ?? ["w96-ambient"];
@@ -705,6 +782,7 @@ function saveCurrentSlot() {
     totalMoney,
     downloads,
     trash,
+    trashedApps,
     achievements,
     cosmetics,
     upgrades,
@@ -727,6 +805,7 @@ function startGameAction() {
     totalMoney = 0;
     downloads = [];
     trash = [];
+    trashedApps = [];
     achievements = [];
     cosmetics = { owned: [], placed: {}, positions: {}, background: "default" };
     upgrades = {
@@ -736,9 +815,11 @@ function startGameAction() {
       multiWindow: 0,
       payoutBoost: 0,
       timeReducer: 0,
+      doubleTap: 0,
     };
     mailStage = 0;
     casinoBets = 0;
+    upgrades.doubleTap = 0;
     unlockedSongs = ["w96-ambient"];
     currentTrack = null;
     audioEnabled = true;
@@ -843,9 +924,32 @@ function renderTrash() {
     li.appendChild(button);
     trashList.appendChild(li);
   });
-  trashStatus.textContent = trash.length
+  trashedApps.forEach((item) => {
+    const li = document.createElement("li");
+    const row = document.createElement("div");
+    row.className = "confirm-actions";
+    row.style.marginTop = "0";
+    row.style.justifyContent = "space-between";
+    const title = document.createElement("span");
+    title.textContent = `${item.label} (app)`;
+    const restore = document.createElement("button");
+    restore.className = "retry";
+    restore.textContent = "Restore";
+    restore.addEventListener("click", () => {
+      restoreAppFromTrash(item.id);
+    });
+    row.appendChild(title);
+    row.appendChild(restore);
+    li.appendChild(row);
+    trashList.appendChild(li);
+  });
+  const hasAny = trash.length > 0 || trashedApps.length > 0;
+  trashStatus.textContent = hasAny
     ? "Right-click the Trash icon to empty."
     : "Trash is empty.";
+  if (restoreSelectedApp) {
+    restoreSelectedApp.disabled = trashedApps.length === 0;
+  }
 }
 
 function moveToTrash(id, type) {
@@ -864,6 +968,7 @@ function moveToTrash(id, type) {
 
 function emptyTrash() {
   trash = [];
+  trashedApps = [];
   renderTrash();
   saveCurrentSlot();
 }
@@ -945,8 +1050,8 @@ function registerIcon(icon, index = 0) {
     }
     icon.dataset.dragging = "false";
     const rect = icon.getBoundingClientRect();
-    const offsetX = event.clientX - rect.left;
-    const offsetY = event.clientY - rect.top;
+    const halfW = rect.width / 2;
+    const halfH = rect.height / 2;
     const startX = event.clientX;
     const startY = event.clientY;
     let moved = false;
@@ -958,8 +1063,8 @@ function registerIcon(icon, index = 0) {
       ) {
         moved = true;
       }
-      icon.style.left = `${moveEvent.clientX - offsetX}px`;
-      icon.style.top = `${moveEvent.clientY - offsetY}px`;
+      icon.style.left = `${moveEvent.clientX - halfW}px`;
+      icon.style.top = `${moveEvent.clientY - halfH}px`;
     }
 
     function onUp() {
@@ -1010,6 +1115,59 @@ function closeIconContextMenu() {
   delete iconContextMenu.dataset.targetKey;
 }
 
+function trashAppIcon(icon) {
+  const appRecord = {
+    id: `app-${Date.now()}-${Math.floor(Math.random() * 10000)}`,
+    iconId: icon.id || null,
+    label: icon.textContent.trim(),
+    className: icon.className,
+    datasetGridX: Number(icon.dataset.gridX || 0),
+    datasetGridY: Number(icon.dataset.gridY || 0),
+    isClone: icon.classList.contains("clicker-clone"),
+  };
+  trashedApps.push(appRecord);
+  if (icon.classList.contains("clicker-clone")) {
+    icon.remove();
+  } else {
+    icon.classList.add("hidden");
+  }
+  renderTrash();
+  saveCurrentSlot();
+}
+
+function restoreAppFromTrash(appId) {
+  const idx = trashedApps.findIndex((item) => item.id === appId);
+  if (idx === -1) {
+    return;
+  }
+  const app = trashedApps.splice(idx, 1)[0];
+  if (app.isClone) {
+    const icon = document.createElement("button");
+    icon.className = app.className || "icon clicker-clone";
+    icon.dataset.deletable = "true";
+    icon.dataset.gridX = String(app.datasetGridX);
+    icon.dataset.gridY = String(app.datasetGridY);
+    icon.innerHTML = `<span class="icon-image clicker"></span>${app.label}`;
+    icon.addEventListener("click", () => {
+      if (wasIconDragged(icon)) {
+        return;
+      }
+      openClickerInstance();
+    });
+    iconsContainer.appendChild(icon);
+    registerIcon(icon);
+    placeInstalledIcon(icon, app.datasetGridX);
+  } else if (app.iconId) {
+    const icon = document.getElementById(app.iconId);
+    if (icon) {
+      icon.classList.remove("hidden");
+      placeInstalledIcon(icon, app.datasetGridX);
+    }
+  }
+  renderTrash();
+  saveCurrentSlot();
+}
+
 function deleteIconTarget() {
   if (!iconContextMenu) {
     return;
@@ -1022,12 +1180,7 @@ function deleteIconTarget() {
     closeIconContextMenu();
     return;
   }
-  if (icon.classList.contains("clicker-clone")) {
-    icon.remove();
-  } else {
-    icon.classList.add("hidden");
-  }
-  saveCurrentSlot();
+  trashAppIcon(icon);
   closeIconContextMenu();
 }
 
@@ -1080,10 +1233,17 @@ function buildOccupancy(excludeIcon) {
   return map;
 }
 
-function findNextFree(occupancy) {
+function findNextFreeFrom(startX, startY, occupancy) {
   const maxCols = getMaxCols();
   const maxRows = getMaxRows();
-  for (let x = 0; x <= maxCols; x += 1) {
+  for (let x = startX; x <= maxCols; x += 1) {
+    for (let y = x === startX ? startY : 0; y <= maxRows; y += 1) {
+      if (!occupancy.has(getKey(x, y))) {
+        return { x, y };
+      }
+    }
+  }
+  for (let x = 0; x < startX; x += 1) {
     for (let y = 0; y <= maxRows; y += 1) {
       if (!occupancy.has(getKey(x, y))) {
         return { x, y };
@@ -1091,6 +1251,15 @@ function findNextFree(occupancy) {
     }
   }
   return { x: maxCols + 1, y: 0 };
+}
+
+function findNextFree(occupancy) {
+  return findNextFreeFrom(0, 0, occupancy);
+}
+
+function findInstallSpot(preferredX, occupancy) {
+  const clampedX = Math.max(0, Math.min(preferredX, getMaxCols()));
+  return findNextFreeFrom(clampedX, 0, occupancy);
 }
 
 function setIconPosition(icon, x, y) {
@@ -1120,17 +1289,15 @@ function placeIcon(icon, gridX, gridY, allowPush) {
   setIconPosition(icon, gridX, gridY);
 }
 
+function placeInstalledIcon(icon, preferredColumn = 0) {
+  const occupancy = buildOccupancy(icon);
+  const spot = findInstallSpot(preferredColumn, occupancy);
+  setIconPosition(icon, spot.x, spot.y);
+}
+
 function ensureIconPlacement(icon) {
   const defaults = iconDefaults[icon.id] || { x: 0, y: 0 };
   placeIcon(icon, defaults.x, defaults.y, false);
-}
-
-function initIconGrid() {
-  document.querySelectorAll(".icon").forEach((icon) => {
-    if (!icon.classList.contains("hidden")) {
-      ensureIconPlacement(icon);
-    }
-  });
 }
 
 function collectDesktopState() {
@@ -1302,7 +1469,7 @@ function spawnClickerIcon() {
   });
   iconsContainer.appendChild(icon);
   registerIcon(icon, count);
-  placeIcon(icon, iconDefaults.clickerIcon.x, iconDefaults.clickerIcon.y, false);
+  placeInstalledIcon(icon, iconDefaults.clickerIcon.x);
 }
 
 function showToast(title, body) {
@@ -1346,7 +1513,8 @@ function countUpgradesPurchased() {
     upgrades.autoClick +
     upgrades.multiWindow +
     upgrades.payoutBoost +
-    upgrades.timeReducer
+    upgrades.timeReducer +
+    upgrades.doubleTap
   );
 }
 
@@ -1792,6 +1960,11 @@ function setMailContent() {
 }
 
 function refreshUpgrades() {
+  const tapNames = ["Double-Tap", "Triple-Tap", "Quadra-Tap", "Penta-Tap", "Penta-Tap MAX"];
+  const tapLevel = Math.max(0, Math.min(upgrades.doubleTap, 4));
+  if (doubleTapName) {
+    doubleTapName.textContent = tapNames[tapLevel];
+  }
   document.querySelectorAll(".upgrade").forEach((button) => {
     const key = button.dataset.upgrade;
     const config = upgradeConfigs[key];
@@ -1825,6 +1998,9 @@ function applyUpgrade(key) {
   }
   if (key === "time-reducer") {
     upgrades.timeReducer = Math.min(upgrades.timeReducer + 1, 25);
+  }
+  if (key === "double-tap") {
+    upgrades.doubleTap = Math.min(upgrades.doubleTap + 1, 5);
   }
   saveCurrentSlot();
   refreshUpgrades();
@@ -1868,6 +2044,9 @@ function getUpgradeLevel(key) {
   }
   if (key === "time-reducer") {
     return upgrades.timeReducer;
+  }
+  if (key === "double-tap") {
+    return upgrades.doubleTap;
   }
   return 0;
 }
@@ -1957,13 +2136,15 @@ function renderBlackjackBoard(revealDealer = false) {
   casinoCards.textContent = `${dealerLine} | ${playerLine}`;
 }
 
-function finishBlackjack(result, payout = 0) {
+function finishBlackjack(result, returnFactor = 0) {
   casinoHit.classList.add("hidden");
   casinoStand.classList.add("hidden");
   const bet = blackjackState ? blackjackState.bet : 0;
+  totalMoney = Number(totalMoney) || 0;
   if (result === "win") {
-    totalMoney += bet + payout;
-    casinoStatus.textContent = `Blackjack win! +$${bet + payout}`;
+    const returned = Math.round(bet * returnFactor * 100) / 100;
+    totalMoney += returned;
+    casinoStatus.textContent = `Blackjack win! Returned $${returned.toFixed(2)}.`;
   } else if (result === "push") {
     totalMoney += bet;
     casinoStatus.textContent = "Push. Your bet was returned.";
@@ -1986,7 +2167,7 @@ function dealerTurn() {
   const playerScore = handValue(blackjackState.player);
   const dealerScore = handValue(blackjackState.dealer);
   if (dealerScore > 21 || playerScore > dealerScore) {
-    finishBlackjack("win");
+    finishBlackjack("win", 2);
     return;
   }
   if (dealerScore === playerScore) {
@@ -2025,7 +2206,7 @@ function startBlackjackRound() {
     return;
   }
   if (playerScore === 21) {
-    finishBlackjack("win", Math.floor(bet * 0.5));
+    finishBlackjack("win", 2.5);
     return;
   }
   if (dealerScore === 21) {
@@ -2241,6 +2422,16 @@ if (toggleAudioButton) {
   });
 }
 
+if (restoreSelectedApp) {
+  restoreSelectedApp.addEventListener("click", () => {
+    if (trashedApps.length === 0) {
+      return;
+    }
+    const last = trashedApps[trashedApps.length - 1];
+    restoreAppFromTrash(last.id);
+  });
+}
+
 if (logoutButton) {
   logoutButton.addEventListener("click", () => {
     stopSong();
@@ -2318,10 +2509,9 @@ document.addEventListener("click", (event) => {
 updateClock();
 setInterval(updateClock, 1000);
 refreshTitleAction();
-loadSlot();
 setupWindowDragging();
 setupIconDragging();
-initIconGrid();
+loadSlot();
 renderTaskbarWindows();
 refreshUpgrades();
 registerClickerInstance(clickerWindow);

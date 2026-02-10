@@ -423,6 +423,65 @@ body {
   justify-content: flex-start;
 }
 
+
+.desktop-settings-layout {
+  display: grid;
+  grid-template-columns: 140px 1fr;
+  gap: 0.8rem;
+}
+
+.settings-sidebar {
+  display: grid;
+  gap: 0.4rem;
+  align-content: start;
+}
+
+.settings-sidebar .tab {
+  text-align: left;
+  width: 100%;
+}
+
+.settings-content {
+  min-width: 0;
+}
+
+.logout-button {
+  margin-top: 0.6rem;
+  background: #6b1d1d;
+  border: 1px solid #8f3333;
+  color: #ffe2e2;
+  padding: 0.35rem 0.6rem;
+  cursor: pointer;
+  text-align: left;
+}
+
+.jukebox-visual {
+  margin-top: 0.6rem;
+  padding: 0.55rem;
+  border: 1px solid #2f3f5e;
+  background: #141b2a;
+  display: grid;
+  gap: 0.45rem;
+}
+
+.disc {
+  width: 64px;
+  height: 64px;
+  border-radius: 50%;
+  background: radial-gradient(circle at 50% 50%, #1f2a44 12%, #8a7cff 14%, #392f58 58%, #121821 100%);
+  border: 2px solid #8c96ad;
+  justify-self: center;
+}
+
+.disc.spinning {
+  animation: spin 1.3s linear infinite;
+}
+
+.jukebox-time {
+  text-align: center;
+  font-size: 0.75rem;
+  opacity: 0.85;
+}
 .cosmetic-list,
 .achievement-list {
   list-style: none;
