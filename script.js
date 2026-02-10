@@ -1167,15 +1167,15 @@ function registerIcon(icon, index = 0) {
     const startY = event.clientY;
     let moved = false;
 
-    icon.style.left = `${event.clientX - halfW}px`;
-    icon.style.top = `${event.clientY - halfH}px`;
-
     function onMove(moveEvent) {
       if (
         Math.abs(moveEvent.clientX - startX) > 4 ||
         Math.abs(moveEvent.clientY - startY) > 4
       ) {
         moved = true;
+      }
+      if (!moved) {
+        return;
       }
       icon.style.left = `${moveEvent.clientX - halfW}px`;
       icon.style.top = `${moveEvent.clientY - halfH}px`;
@@ -1265,7 +1265,21 @@ function refreshDesktopIcons() {
     if (desktop) {
       desktop.classList.remove("desktop-refreshing");
     }
-  }, 500);
+
+    const forced = new Set();
+    if (virusState.pendingIconId) {
+      const pending = document.getElementById(virusState.pendingIconId);
+      if (pending && !pending.classList.contains("hidden")) {
+        forced.add(pending);
+      }
+    }
+    document.querySelectorAll(".icon.infected:not(.hidden)").forEach((icon) => {
+      forced.add(icon);
+    });
+    forced.forEach((icon) => {
+      jitterIcon(icon, 2);
+    });
+  }, 220);
 }
 
 function trashAppIcon(icon) {
