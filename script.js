@@ -763,9 +763,9 @@ function loadSlot() {
     jukeboxIcon.classList.remove("hidden");
     ensureIconPlacement(jukeboxIcon);
   }
-  if (downloads.length > 0) {
+  if (downloads.length > 0 && downloadsIcon.classList.contains("hidden")) {
     downloadsIcon.classList.remove("hidden");
-    ensureIconPlacement(downloadsIcon);
+    placeInstalledIcon(downloadsIcon, 0);
   }
   setMailContent();
   renderSongShop();
@@ -887,7 +887,7 @@ function addDownloadFile() {
   downloads.push({ id: Date.now(), name });
   if (downloadsIcon.classList.contains("hidden")) {
     downloadsIcon.classList.remove("hidden");
-    ensureIconPlacement(downloadsIcon);
+    placeInstalledIcon(downloadsIcon, 0);
   }
   renderDownloads();
   saveCurrentSlot();
@@ -1928,8 +1928,10 @@ function handleHouseMail() {
   mailStage = 3;
   hasEmail = true;
   mailBadge.classList.remove("hidden");
-  casinoIcon.classList.remove("hidden");
-  ensureIconPlacement(casinoIcon);
+  if (casinoIcon.classList.contains("hidden")) {
+    casinoIcon.classList.remove("hidden");
+    placeInstalledIcon(casinoIcon, 0);
+  }
   setMailContent();
   showToast("New Mail", "The House is inviting you in.");
   saveCurrentSlot();
@@ -1964,8 +1966,10 @@ function setMailContent() {
       "The House is open. Care to test your luck? Attached is a new game.";
     downloadAttachment.classList.add("hidden");
     houseAttachment.classList.remove("hidden");
-    casinoIcon.classList.remove("hidden");
-    ensureIconPlacement(casinoIcon);
+    if (casinoIcon.classList.contains("hidden")) {
+      casinoIcon.classList.remove("hidden");
+      placeInstalledIcon(casinoIcon, 0);
+    }
   }
 }
 
@@ -2334,8 +2338,10 @@ downloadAttachment.addEventListener("click", () => {
 });
 
 houseAttachment.addEventListener("click", () => {
-  casinoIcon.classList.remove("hidden");
-  ensureIconPlacement(casinoIcon);
+  if (casinoIcon.classList.contains("hidden")) {
+    casinoIcon.classList.remove("hidden");
+    placeInstalledIcon(casinoIcon, 0);
+  }
   showWindow(casinoWindow);
 });
 
