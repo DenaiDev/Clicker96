@@ -130,6 +130,7 @@ let downloadRetryCount = 0;
 let casinoBets = 0;
 let iconKeyCounter = 0;
 let isLoadingSlot = false;
+let isBootstrapping = true;
 let unlockedSongs = ["w96-ambient"];
 let currentTrack = null;
 let audioEnabled = true;
@@ -1194,7 +1195,7 @@ function snapIcon(icon) {
     ? Math.max(0, Math.round(top / gridSize.y))
     : Number(icon.dataset.gridY || 0);
   placeIcon(icon, gridX, gridY, true);
-  if (!isLoadingSlot) {
+  if (!isLoadingSlot && !isBootstrapping) {
     saveCurrentSlot();
   }
 }
@@ -2512,6 +2513,7 @@ refreshTitleAction();
 setupWindowDragging();
 setupIconDragging();
 loadSlot();
+isBootstrapping = false;
 renderTaskbarWindows();
 refreshUpgrades();
 registerClickerInstance(clickerWindow);
