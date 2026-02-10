@@ -3,3 +3,7 @@
 
 # Playwright/screenshots or other generated artifacts
 artifacts/
+
+# Local game data exports
+gamedata/
+gamedata.json

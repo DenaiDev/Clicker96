@@ -36,8 +36,6 @@ const internetIcon = document.getElementById("internetIcon");
 const casinoIcon = document.getElementById("casinoIcon");
 const internetWindow = document.getElementById("internetWindow");
 const clickerWindow = document.getElementById("clickerWindow");
-const earnBar = document.getElementById("earnBar");
-const earnProgress = document.getElementById("earnProgress");
 const clock = document.getElementById("clock");
 const moneyDisplay = document.getElementById("moneyDisplay");
 const settingsWindow = document.getElementById("settingsWindow");
@@ -49,7 +47,6 @@ const trashWindow = document.getElementById("trashWindow");
 const trashList = document.getElementById("trashList");
 const trashStatus = document.getElementById("trashStatus");
 const taskbarWindows = document.getElementById("taskbarWindows");
-const timeEstimate = document.getElementById("timeEstimate");
 const toast = document.getElementById("toast");
 const toastTitle = document.getElementById("toastTitle");
 const toastBody = document.getElementById("toastBody");
@@ -66,13 +63,25 @@ const casinoBlackjack = document.getElementById("casinoBlackjack");
 const casinoDouble = document.getElementById("casinoDouble");
 const casinoStatus = document.getElementById("casinoStatus");
 const iconsContainer = document.querySelector(".icons");
+const decorationsLayer = document.getElementById("decorationsLayer");
+const shopTabs = document.getElementById("shopTabs");
+const achievementList = document.getElementById("achievementList");
+const cosmeticShopList = document.getElementById("cosmeticShopList");
+const openCosmetics = document.getElementById("openCosmetics");
+const cosmeticsWindow = document.getElementById("cosmeticsWindow");
+const ownedCosmetics = document.getElementById("ownedCosmetics");
+const iconContextMenu = document.getElementById("iconContextMenu");
+const deleteIconButton = document.getElementById("deleteIconButton");
 const levelEstimator = document.getElementById("level-estimator");
 const levelBarTuner = document.getElementById("level-bar-tuner");
 const levelAutoClick = document.getElementById("level-auto-click");
 const levelMultiWindow = document.getElementById("level-multi-window");
+const levelPayoutBoost = document.getElementById("level-payout-boost");
+const levelTimeReducer = document.getElementById("level-time-reducer");
 
-let earnInterval = null;
-let startTime = null;
+const clickerInstances = new Map();
+let clickerInstanceId = 0;
+let pendingCloseWindow = null;
 let popTimeout = null;
 let totalMoney = 0;
 let currentSlot = 1;
@@ -81,6 +90,7 @@ let downloads = [];
 let trash = [];
 let openedWindows = new Set();
 let achievements = [];
+let cosmetics = { owned: [], placed: {}, positions: {}, background: "default" };
 let lastToastTimeout = null;
 let hasEmail = false;
 let emailTimer = null;
@@ -94,11 +104,16 @@ let mailStage = 0;
 let totalClicks = 0;
 let blackjackPending = 0;
 let downloadRetryCount = 0;
+let casinoBets = 0;
+let iconKeyCounter = 0;
+let isLoadingSlot = false;
 let upgrades = {
   estimator: 0,
   barTuner: 0,
   autoClick: 0,
   multiWindow: 0,
+  payoutBoost: 0,
+  timeReducer: 0,
 };
 const wrongPasswordMessages = [
   "Access denied. Try again.",
@@ -122,7 +137,61 @@ const upgradeConfigs = {
   "bar-tuner": { max: null, base: 1, scale: 1.4, levelEl: levelBarTuner },
   "auto-click": { max: 5, base: 3, scale: 1.8, levelEl: levelAutoClick },
   "multi-window": { max: null, base: 6, scale: 1.6, levelEl: levelMultiWindow },
+  "payout-boost": { max: null, base: 5, scale: 2, levelEl: levelPayoutBoost },
+  "time-reducer": { max: 25, base: 20, scale: 1.6, levelEl: levelTimeReducer },
 };
+
+const achievementConfigs = [
+  { id: "first-dollar", title: "First Dollar", description: "Earned your first $1." },
+  { id: "clicker", title: "Click Starter", description: "You started clicking." },
+  { id: "installer", title: "Installer", description: "Clicker96 installed." },
+  { id: "ten-bucks", title: "Double Digits", description: "Hit $10 total." },
+  { id: "fifty-bucks", title: "Saver", description: "Hit $50 total." },
+  { id: "hundred-bucks", title: "Big League", description: "Hit $100 total." },
+  { id: "upgrade-fiend", title: "Upgrade Fiend", description: "Bought 5 upgrades." },
+  { id: "decorator", title: "Decorator", description: "Bought your first cosmetic." },
+  { id: "dual-wield", title: "Dual Wield", description: "Opened two Clicker96 windows." },
+  { id: "casino-regular", title: "Casino Regular", description: "Placed 5 casino bets." },
+  { id: "rapid-clicker", title: "Rapid Clicker", description: "Clicked the bar 25 times." },
+];
+
+const cosmeticCatalog = [
+  {
+    id: "neon-plant",
+    title: "Neon Plant",
+    description: "A glow-in-the-dark house plant.",
+    cost: 8,
+    type: "decor",
+  },
+  {
+    id: "retro-poster",
+    title: "Retro Poster",
+    description: "A vintage gaming poster for your wall.",
+    cost: 12,
+    type: "decor",
+  },
+  {
+    id: "desk-toy",
+    title: "Desk Toy",
+    description: "Click to spin this tiny toy.",
+    cost: 6,
+    type: "fidget",
+  },
+  {
+    id: "lava-lamp",
+    title: "Lava Lamp",
+    description: "Slow, soothing bubbles.",
+    cost: 18,
+    type: "decor",
+  },
+  {
+    id: "sunset-wallpaper",
+    title: "Sunset Wallpaper",
+    description: "Warm up the desktop background.",
+    cost: 25,
+    type: "background",
+  },
+];
 
 function updateClock() {
   const now = new Date();
@@ -241,33 +310,43 @@ function startInstallSequence() {
       spawnClickerIcon();
     }
     maybeAward("installer", "Installer", "Clicker96 installed.");
+    saveCurrentSlot();
   }, 1400);
 }
 
-function startEarning() {
-  const duration = 5 * 60 * 1000;
-  startTime = Date.now();
+function getEarnDuration() {
+  const baseDuration = 5 * 60 * 1000;
+  const reduction = Math.min(upgrades.timeReducer, 25) * 10000;
+  return Math.max(baseDuration - reduction, 50000);
+}
 
-  if (earnInterval) {
-    clearInterval(earnInterval);
+function getEarnPayout() {
+  return 1 + upgrades.payoutBoost;
+}
+
+function startEarning(instance) {
+  instance.startTime = Date.now();
+  if (instance.interval) {
+    clearInterval(instance.interval);
   }
 
-  earnInterval = setInterval(() => {
+  instance.interval = setInterval(() => {
     if (upgrades.autoClick > 0) {
-      startTime -= upgrades.autoClick * 200;
+      instance.startTime -= upgrades.autoClick * 200;
     }
-    const elapsed = Date.now() - startTime;
+    const duration = getEarnDuration();
+    const elapsed = Date.now() - instance.startTime;
     const progress = Math.min(elapsed / duration, 1);
 
-    earnProgress.style.width = `${progress * 100}%`;
-    updateEstimate(duration, elapsed);
+    instance.progress.style.width = `${progress * 100}%`;
+    updateEstimate(instance.estimate, duration, elapsed);
 
     if (progress >= 1) {
-      totalMoney += 1;
+      totalMoney += getEarnPayout();
       updateMoneyDisplay();
       saveCurrentSlot();
-      startTime = Date.now();
-      earnProgress.style.width = "0%";
+      instance.startTime = Date.now();
+      instance.progress.style.width = "0%";
       maybeAward("first-dollar", "First Dollar", "Earned your first $1.");
       handleFriendFollowup();
       handleHouseMail();
@@ -275,7 +354,10 @@ function startEarning() {
   }, 1000);
 }
 
-function updateEstimate(duration, elapsed) {
+function updateEstimate(estimateEl, duration, elapsed) {
+  if (!estimateEl) {
+    return;
+  }
   const remaining = Math.max(duration - elapsed, 0);
   const accuracyIndex = Math.min(getEstimateLevel(), accuracyLevels.length - 1);
   const baseNoise =
@@ -284,36 +366,39 @@ function updateEstimate(duration, elapsed) {
   const noisyRemaining = remaining * (1 + variance);
   const minutes = Math.floor(noisyRemaining / 60000);
   const seconds = Math.floor((noisyRemaining % 60000) / 1000);
-  timeEstimate.textContent = `~${minutes}m ${seconds}s`;
+  estimateEl.textContent = `~${minutes}m ${seconds}s`;
 }
 
 function getEstimateLevel() {
   return upgrades.estimator;
 }
 
-function nudgeProgressBar() {
-  if (!startTime) {
+function nudgeProgressBar(instance) {
+  if (!instance.startTime) {
     return;
   }
   totalClicks += 1;
   updateCombo();
   const tunerBoost = 1 + upgrades.barTuner * 0.05;
-  startTime -= 1000 * comboMultiplier * tunerBoost;
+  instance.startTime -= 1000 * comboMultiplier * tunerBoost;
   const rotate = Math.floor(Math.random() * 7) - 3;
-  earnBar.classList.remove("pop");
-  void earnBar.offsetWidth;
-  earnBar.style.setProperty("--pop-rotate", `${rotate}deg`);
-  earnBar.classList.add("pop");
+  instance.bar.classList.remove("pop");
+  void instance.bar.offsetWidth;
+  instance.bar.style.setProperty("--pop-rotate", `${rotate}deg`);
+  instance.bar.classList.add("pop");
   if (popTimeout) {
     clearTimeout(popTimeout);
   }
   popTimeout = setTimeout(() => {
-    earnBar.classList.remove("pop");
+    instance.bar.classList.remove("pop");
   }, 200);
   comboValue.classList.remove("shake");
   void comboValue.offsetWidth;
   comboValue.classList.add("shake");
   maybeAward("clicker", "Click Starter", "You started clicking.");
+  if (totalClicks >= 25) {
+    maybeAward("rapid-clicker", "Rapid Clicker", "Clicked the bar 25 times.");
+  }
 }
 
 function updateCombo() {
@@ -373,6 +458,9 @@ function updateMoneyDisplay() {
   const formatted = `$${totalMoney.toFixed(2)}`;
   moneyDisplay.textContent = formatted;
   refreshUpgrades();
+  renderCosmeticShop();
+  renderOwnedCosmetics();
+  checkMoneyAchievements();
 }
 
 function currentSlotKey() {
@@ -388,41 +476,62 @@ function getSlotData() {
 }
 
 function loadSlot() {
+  isLoadingSlot = true;
   const data = getSlotData();
   if (!data) {
     totalMoney = 0;
     downloads = [];
     trash = [];
     achievements = [];
+    cosmetics = { owned: [], placed: {}, positions: {}, background: "default" };
     upgrades = {
       estimator: 0,
       barTuner: 0,
       autoClick: 0,
       multiWindow: 0,
+      payoutBoost: 0,
+      timeReducer: 0,
     };
+    casinoBets = 0;
     updateMoneyDisplay();
     renderDownloads();
     renderTrash();
+    renderCosmetics();
+    renderAchievements();
+    applyDesktopState(null);
+    isLoadingSlot = false;
     return false;
   }
   totalMoney = data.totalMoney ?? 0;
   downloads = data.downloads ?? [];
   trash = data.trash ?? [];
   achievements = data.achievements ?? [];
+  cosmetics = data.cosmetics ?? cosmetics;
+  cosmetics.owned = cosmetics.owned ?? [];
+  cosmetics.placed = cosmetics.placed ?? {};
+  cosmetics.positions = cosmetics.positions ?? {};
+  cosmetics.background = cosmetics.background ?? "default";
   upgrades = data.upgrades ?? upgrades;
   upgrades.estimator = Number(upgrades.estimator) || 0;
   upgrades.barTuner = Number(upgrades.barTuner) || 0;
   upgrades.autoClick = Number(upgrades.autoClick) || 0;
   upgrades.multiWindow = Number(upgrades.multiWindow) || 0;
+  upgrades.payoutBoost = Number(upgrades.payoutBoost) || 0;
+  upgrades.timeReducer = Number(upgrades.timeReducer) || 0;
   mailStage = data.mailStage ?? 0;
+  casinoBets = data.casinoBets ?? 0;
   updateMoneyDisplay();
   renderDownloads();
   renderTrash();
+  renderCosmetics();
+  renderAchievements();
+  applyDesktopState(data.desktopState);
   if (downloads.length > 0) {
     downloadsIcon.classList.remove("hidden");
     ensureIconPlacement(downloadsIcon);
   }
   setMailContent();
+  isLoadingSlot = false;
   return true;
 }
 
@@ -432,8 +541,11 @@ function saveCurrentSlot() {
     downloads,
     trash,
     achievements,
+    cosmetics,
     upgrades,
     mailStage,
+    casinoBets,
+    desktopState: collectDesktopState(),
   };
   localStorage.setItem(currentSlotKey(), JSON.stringify(data));
   refreshTitleAction();
@@ -446,13 +558,17 @@ function startGameAction() {
     downloads = [];
     trash = [];
     achievements = [];
+    cosmetics = { owned: [], placed: {}, positions: {}, background: "default" };
     upgrades = {
       estimator: 0,
       barTuner: 0,
       autoClick: 0,
       multiWindow: 0,
+      payoutBoost: 0,
+      timeReducer: 0,
     };
     mailStage = 0;
+    casinoBets = 0;
     downloadsIcon.classList.add("hidden");
     updateMoneyDisplay();
     saveCurrentSlot();
@@ -576,35 +692,38 @@ function openSettings() {
   settingsSlotLabel.textContent = String(currentSlot);
 }
 
+function registerWindowDragging(windowEl) {
+  const header = windowEl.querySelector(".window-header");
+  if (!header) {
+    return;
+  }
+  header.addEventListener("mousedown", (event) => {
+    if (event.target.closest("button")) {
+      return;
+    }
+    focusWindow(windowEl);
+    const rect = windowEl.getBoundingClientRect();
+    const offsetX = event.clientX - rect.left;
+    const offsetY = event.clientY - rect.top;
+
+    function onMove(moveEvent) {
+      windowEl.style.left = `${moveEvent.clientX - offsetX}px`;
+      windowEl.style.top = `${moveEvent.clientY - offsetY}px`;
+    }
+
+    function onUp() {
+      document.removeEventListener("mousemove", onMove);
+      document.removeEventListener("mouseup", onUp);
+    }
+
+    document.addEventListener("mousemove", onMove);
+    document.addEventListener("mouseup", onUp);
+  });
+}
+
 function setupWindowDragging() {
-  const headers = document.querySelectorAll(".window-header");
-  headers.forEach((header) => {
-    header.addEventListener("mousedown", (event) => {
-      if (event.target.closest("button")) {
-        return;
-      }
-      const windowEl = header.closest(".window");
-      if (!windowEl) {
-        return;
-      }
-      focusWindow(windowEl);
-      const rect = windowEl.getBoundingClientRect();
-      const offsetX = event.clientX - rect.left;
-      const offsetY = event.clientY - rect.top;
-
-      function onMove(moveEvent) {
-        windowEl.style.left = `${moveEvent.clientX - offsetX}px`;
-        windowEl.style.top = `${moveEvent.clientY - offsetY}px`;
-      }
-
-      function onUp() {
-        document.removeEventListener("mousemove", onMove);
-        document.removeEventListener("mouseup", onUp);
-      }
-
-      document.addEventListener("mousemove", onMove);
-      document.addEventListener("mouseup", onUp);
-    });
+  document.querySelectorAll(".window").forEach((windowEl) => {
+    registerWindowDragging(windowEl);
   });
 }
 
@@ -617,6 +736,10 @@ function setupIconDragging() {
 
 function registerIcon(icon, index = 0) {
   icon.style.position = "absolute";
+  if (!icon.dataset.iconKey) {
+    iconKeyCounter += 1;
+    icon.dataset.iconKey = `icon-${iconKeyCounter}`;
+  }
   if (!icon.dataset.gridX) {
     const defaults = iconDefaults[icon.id];
     const column = defaults ? defaults.x : 0;
@@ -630,11 +753,21 @@ function registerIcon(icon, index = 0) {
     if (event.button !== 0) {
       return;
     }
+    icon.dataset.dragging = "false";
     const rect = icon.getBoundingClientRect();
     const offsetX = event.clientX - rect.left;
     const offsetY = event.clientY - rect.top;
+    const startX = event.clientX;
+    const startY = event.clientY;
+    let moved = false;
 
     function onMove(moveEvent) {
+      if (
+        Math.abs(moveEvent.clientX - startX) > 4 ||
+        Math.abs(moveEvent.clientY - startY) > 4
+      ) {
+        moved = true;
+      }
       icon.style.left = `${moveEvent.clientX - offsetX}px`;
       icon.style.top = `${moveEvent.clientY - offsetY}px`;
     }
@@ -642,12 +775,70 @@ function registerIcon(icon, index = 0) {
     function onUp() {
       document.removeEventListener("mousemove", onMove);
       document.removeEventListener("mouseup", onUp);
-      snapIcon(icon);
+      if (moved) {
+        icon.dataset.dragging = "true";
+        snapIcon(icon);
+      }
     }
 
     document.addEventListener("mousemove", onMove);
     document.addEventListener("mouseup", onUp);
   });
+
+  icon.addEventListener("contextmenu", (event) => {
+    if (!icon.dataset.deletable) {
+      return;
+    }
+    event.preventDefault();
+    openIconContextMenu(icon, event.clientX, event.clientY);
+  });
+}
+
+function wasIconDragged(icon) {
+  if (icon.dataset.dragging === "true") {
+    icon.dataset.dragging = "false";
+    return true;
+  }
+  return false;
+}
+
+function openIconContextMenu(icon, x, y) {
+  if (!iconContextMenu) {
+    return;
+  }
+  iconContextMenu.dataset.targetKey = icon.dataset.iconKey || "";
+  iconContextMenu.style.left = `${x}px`;
+  iconContextMenu.style.top = `${y}px`;
+  iconContextMenu.classList.remove("hidden");
+}
+
+function closeIconContextMenu() {
+  if (!iconContextMenu) {
+    return;
+  }
+  iconContextMenu.classList.add("hidden");
+  delete iconContextMenu.dataset.targetKey;
+}
+
+function deleteIconTarget() {
+  if (!iconContextMenu) {
+    return;
+  }
+  let icon = null;
+  if (iconContextMenu.dataset.targetKey) {
+    icon = document.querySelector(`[data-icon-key="${iconContextMenu.dataset.targetKey}"]`);
+  }
+  if (!icon) {
+    closeIconContextMenu();
+    return;
+  }
+  if (icon.classList.contains("clicker-clone")) {
+    icon.remove();
+  } else {
+    icon.classList.add("hidden");
+  }
+  saveCurrentSlot();
+  closeIconContextMenu();
 }
 
 function snapIcon(icon) {
@@ -660,6 +851,9 @@ function snapIcon(icon) {
     ? Math.max(0, Math.round(top / gridSize.y))
     : Number(icon.dataset.gridY || 0);
   placeIcon(icon, gridX, gridY, true);
+  if (!isLoadingSlot) {
+    saveCurrentSlot();
+  }
 }
 
 function getMaxRows() {
@@ -696,16 +890,15 @@ function buildOccupancy(excludeIcon) {
   return map;
 }
 
-function findNextFree(startX, startY, occupancy) {
+function findNextFree(occupancy) {
   const maxCols = getMaxCols();
   const maxRows = getMaxRows();
-  for (let x = startX; x <= maxCols; x += 1) {
-    for (let y = startY; y <= maxRows; y += 1) {
+  for (let x = 0; x <= maxCols; x += 1) {
+    for (let y = 0; y <= maxRows; y += 1) {
       if (!occupancy.has(getKey(x, y))) {
         return { x, y };
       }
     }
-    startY = 0;
   }
   return { x: maxCols + 1, y: 0 };
 }
@@ -723,14 +916,14 @@ function placeIcon(icon, gridX, gridY, allowPush) {
   if (occupancy.has(key)) {
     if (allowPush) {
       const occupant = occupancy.get(key);
-      const next = findNextFree(gridX, gridY + 1, occupancy);
+      const next = findNextFree(occupancy);
       setIconPosition(occupant, next.x, next.y);
       occupancy.delete(key);
       occupancy.set(getKey(next.x, next.y), occupant);
       setIconPosition(icon, gridX, gridY);
       return;
     }
-    const next = findNextFree(gridX, gridY + 1, occupancy);
+    const next = findNextFree(occupancy);
     setIconPosition(icon, next.x, next.y);
     return;
   }
@@ -750,6 +943,158 @@ function initIconGrid() {
   });
 }
 
+function collectDesktopState() {
+  const baseIcons = {};
+  const clickerClones = [];
+  document.querySelectorAll(".icon").forEach((icon) => {
+    const state = {
+      x: Number(icon.dataset.gridX || 0),
+      y: Number(icon.dataset.gridY || 0),
+      hidden: icon.classList.contains("hidden"),
+    };
+    if (icon.id) {
+      baseIcons[icon.id] = state;
+    } else if (icon.classList.contains("clicker-clone")) {
+      clickerClones.push({
+        ...state,
+        label: icon.textContent.trim(),
+      });
+    }
+  });
+  return { baseIcons, clickerClones };
+}
+
+function createClickerIconClone(state, index) {
+  const icon = document.createElement("button");
+  icon.className = "icon clicker-clone";
+  icon.dataset.deletable = "true";
+  icon.dataset.gridX = String(state?.x ?? iconDefaults.clickerIcon.x);
+  icon.dataset.gridY = String(state?.y ?? iconDefaults.clickerIcon.y);
+  const label = state?.label || `Clicker96 (${index})`;
+  icon.innerHTML = `<span class="icon-image clicker"></span>${label}`;
+  icon.addEventListener("click", () => {
+    if (wasIconDragged(icon)) {
+      return;
+    }
+    openClickerInstance();
+  });
+  iconsContainer.appendChild(icon);
+  registerIcon(icon, index);
+  placeIcon(icon, Number(icon.dataset.gridX), Number(icon.dataset.gridY), false);
+}
+
+function applyDesktopState(state) {
+  const baseIcons = state?.baseIcons ?? {};
+  document.querySelectorAll(".icon.clicker-clone").forEach((icon) => {
+    icon.remove();
+  });
+  const clones = state?.clickerClones ?? [];
+  clones.forEach((cloneState, index) => {
+    createClickerIconClone(cloneState, index + 2);
+  });
+  Object.keys(iconDefaults).forEach((id) => {
+    const icon = document.getElementById(id);
+    if (!icon) {
+      return;
+    }
+    const saved = baseIcons[id];
+    if (saved) {
+      icon.classList.toggle("hidden", saved.hidden);
+      placeIcon(icon, saved.x, saved.y, false);
+      return;
+    }
+    if (id === "downloadsIcon" && downloads.length > 0) {
+      icon.classList.remove("hidden");
+    }
+    if (id === "casinoIcon" && mailStage >= 3) {
+      icon.classList.remove("hidden");
+    }
+    ensureIconPlacement(icon);
+  });
+}
+
+function registerClickerInstance(windowEl) {
+  const bar = windowEl.querySelector('[data-clicker="bar"]');
+  const progress = windowEl.querySelector('[data-clicker="progress"]');
+  const estimate = windowEl.querySelector('[data-clicker="estimate"]');
+  const instance = {
+    id: windowEl.id,
+    windowEl,
+    bar,
+    progress,
+    estimate,
+    startTime: null,
+    interval: null,
+  };
+  if (bar) {
+    bar.addEventListener("click", () => {
+      nudgeProgressBar(instance);
+    });
+  }
+  clickerInstances.set(windowEl.id, instance);
+  return instance;
+}
+
+function registerWindow(windowEl) {
+  windowEl.addEventListener("mousedown", () => {
+    focusWindow(windowEl);
+  });
+}
+
+function createClickerWindowClone() {
+  const clone = clickerWindow.cloneNode(true);
+  clickerInstanceId += 1;
+  clone.id = `clickerWindow-${clickerInstanceId}`;
+  clone.dataset.windowType = "clicker";
+  const closeButton = clone.querySelector("[data-close]");
+  if (closeButton) {
+    closeButton.dataset.close = clone.id;
+    attachCloseHandler(closeButton);
+  }
+  clone.classList.add("hidden");
+  clone.style.left = `${240 + clickerInstances.size * 20}px`;
+  clone.style.top = `${120 + clickerInstances.size * 20}px`;
+  desktop.appendChild(clone);
+  registerWindow(clone);
+  registerWindowDragging(clone);
+  return registerClickerInstance(clone);
+}
+
+function getOpenClickerCount() {
+  let count = 0;
+  clickerInstances.forEach((instance) => {
+    if (!instance.windowEl.classList.contains("hidden")) {
+      count += 1;
+    }
+  });
+  return count;
+}
+
+function openClickerInstance() {
+  const maxWindows = 1 + upgrades.multiWindow;
+  const openCount = getOpenClickerCount();
+  if (openCount >= maxWindows) {
+    showToast("Multi-Window Buffer", "Upgrade to open more Clicker96 windows.");
+    return;
+  }
+  let instance = null;
+  clickerInstances.forEach((existing) => {
+    if (!instance && existing.windowEl.classList.contains("hidden")) {
+      instance = existing;
+    }
+  });
+  if (!instance) {
+    instance = createClickerWindowClone();
+  }
+  showWindow(instance.windowEl);
+  if (!instance.interval) {
+    startEarning(instance);
+  }
+  if (openCount + 1 >= 2) {
+    maybeAward("dual-wield", "Dual Wield", "Opened two Clicker96 windows.");
+  }
+}
+
 function spawnClickerIcon() {
   if (!iconsContainer) {
     return;
@@ -757,12 +1102,13 @@ function spawnClickerIcon() {
   const count = document.querySelectorAll(".icon.clicker-clone").length + 2;
   const icon = document.createElement("button");
   icon.className = "icon clicker-clone";
+  icon.dataset.deletable = "true";
   icon.innerHTML = `<span class=\"icon-image clicker\"></span>Clicker96 (${count})`;
   icon.addEventListener("click", () => {
-    showWindow(clickerWindow);
-    if (!earnInterval) {
-      startEarning();
+    if (wasIconDragged(icon)) {
+      return;
     }
+    openClickerInstance();
   });
   iconsContainer.appendChild(icon);
   registerIcon(icon, count);
@@ -788,6 +1134,292 @@ function maybeAward(id, title, body) {
   achievements.push(id);
   saveCurrentSlot();
   showToast(title, body);
+  renderAchievements();
+}
+
+function checkMoneyAchievements() {
+  if (totalMoney >= 10) {
+    maybeAward("ten-bucks", "Double Digits", "Hit $10 total.");
+  }
+  if (totalMoney >= 50) {
+    maybeAward("fifty-bucks", "Saver", "Hit $50 total.");
+  }
+  if (totalMoney >= 100) {
+    maybeAward("hundred-bucks", "Big League", "Hit $100 total.");
+  }
+}
+
+function countUpgradesPurchased() {
+  return (
+    upgrades.estimator +
+    upgrades.barTuner +
+    upgrades.autoClick +
+    upgrades.multiWindow +
+    upgrades.payoutBoost +
+    upgrades.timeReducer
+  );
+}
+
+function getCosmetic(id) {
+  return cosmeticCatalog.find((item) => item.id === id);
+}
+
+function isCosmeticOwned(id) {
+  return cosmetics.owned.includes(id);
+}
+
+function applyCosmeticBackground() {
+  if (cosmetics.background === "sunset") {
+    document.body.classList.add("cosmetic-sunset");
+  } else {
+    document.body.classList.remove("cosmetic-sunset");
+  }
+}
+
+function createDecorationElement(item) {
+  const el = document.createElement("button");
+  el.type = "button";
+  el.className = `decoration ${item.id}`;
+  el.textContent = item.title;
+  el.dataset.cosmeticId = item.id;
+  el.addEventListener("click", () => {
+    if (item.type === "fidget") {
+      el.classList.toggle("spin");
+    }
+  });
+  enableDecorationDragging(el);
+  return el;
+}
+
+function enableDecorationDragging(el) {
+  el.addEventListener("mousedown", (event) => {
+    if (event.button !== 0) {
+      return;
+    }
+    const rect = el.getBoundingClientRect();
+    const offsetX = event.clientX - rect.left;
+    const offsetY = event.clientY - rect.top;
+
+    function onMove(moveEvent) {
+      el.style.left = `${moveEvent.clientX - offsetX}px`;
+      el.style.top = `${moveEvent.clientY - offsetY}px`;
+    }
+
+    function onUp() {
+      document.removeEventListener("mousemove", onMove);
+      document.removeEventListener("mouseup", onUp);
+      const itemId = el.dataset.cosmeticId;
+      if (itemId) {
+        cosmetics.positions[itemId] = {
+          x: parseFloat(el.style.left) || 0,
+          y: parseFloat(el.style.top) || 0,
+        };
+        if (!isLoadingSlot) {
+          saveCurrentSlot();
+        }
+      }
+    }
+
+    document.addEventListener("mousemove", onMove);
+    document.addEventListener("mouseup", onUp);
+  });
+}
+
+function placeCosmetic(itemId) {
+  const item = getCosmetic(itemId);
+  if (!item || !isCosmeticOwned(itemId)) {
+    return;
+  }
+  if (item.type === "background") {
+    cosmetics.background = "sunset";
+    applyCosmeticBackground();
+    saveCurrentSlot();
+    renderOwnedCosmetics();
+    return;
+  }
+  if (!decorationsLayer) {
+    return;
+  }
+  if (decorationsLayer.querySelector(`[data-cosmetic-id="${itemId}"]`)) {
+    return;
+  }
+  const element = createDecorationElement(item);
+  const storedPosition = cosmetics.positions[itemId];
+  if (storedPosition) {
+    element.style.left = `${storedPosition.x}px`;
+    element.style.top = `${storedPosition.y}px`;
+  } else {
+    element.style.left = "320px";
+    element.style.top = "120px";
+  }
+  decorationsLayer.appendChild(element);
+  cosmetics.placed[itemId] = true;
+  saveCurrentSlot();
+  renderOwnedCosmetics();
+}
+
+function removeCosmetic(itemId) {
+  if (itemId === "sunset-wallpaper") {
+    cosmetics.background = "default";
+    applyCosmeticBackground();
+    saveCurrentSlot();
+    renderOwnedCosmetics();
+    return;
+  }
+  if (!decorationsLayer) {
+    return;
+  }
+  const element = decorationsLayer.querySelector(`[data-cosmetic-id="${itemId}"]`);
+  if (element) {
+    element.remove();
+  }
+  cosmetics.placed[itemId] = false;
+  cosmetics.positions[itemId] = cosmetics.positions[itemId] ?? null;
+  saveCurrentSlot();
+  renderOwnedCosmetics();
+}
+
+function renderCosmeticShop() {
+  if (!cosmeticShopList) {
+    return;
+  }
+  cosmeticShopList.innerHTML = "";
+  cosmeticCatalog.forEach((item) => {
+    const li = document.createElement("li");
+    li.className = "cosmetic-item";
+    const info = document.createElement("div");
+    info.innerHTML = `<strong>${item.title}</strong><p class="small">${item.description}</p>`;
+    const button = document.createElement("button");
+    const owned = isCosmeticOwned(item.id);
+    button.className = "retry cosmetic-buy";
+    button.disabled = owned || totalMoney < item.cost;
+    button.textContent = owned ? "Owned" : `Buy - $${item.cost}`;
+    button.addEventListener("click", () => {
+      if (owned || totalMoney < item.cost) {
+        return;
+      }
+      totalMoney -= item.cost;
+      cosmetics.owned.push(item.id);
+      cosmetics.placed[item.id] = false;
+      cosmetics.positions[item.id] = null;
+      updateMoneyDisplay();
+      saveCurrentSlot();
+      showToast("Cosmetic", `${item.title} added to Cosmetics.`);
+      maybeAward("decorator", "Decorator", "Bought your first cosmetic.");
+      renderCosmetics();
+    });
+    li.appendChild(info);
+    li.appendChild(button);
+    cosmeticShopList.appendChild(li);
+  });
+}
+
+function renderOwnedCosmetics() {
+  if (!ownedCosmetics) {
+    return;
+  }
+  ownedCosmetics.innerHTML = "";
+  if (cosmetics.owned.length === 0) {
+    const empty = document.createElement("li");
+    empty.textContent = "No cosmetics purchased yet.";
+    ownedCosmetics.appendChild(empty);
+    return;
+  }
+  cosmetics.owned.forEach((itemId) => {
+    const item = getCosmetic(itemId);
+    if (!item) {
+      return;
+    }
+    const li = document.createElement("li");
+    li.className = "cosmetic-item";
+    const info = document.createElement("div");
+    info.innerHTML = `<strong>${item.title}</strong><p class="small">${item.description}</p>`;
+    const button = document.createElement("button");
+    button.className = "retry cosmetic-toggle";
+    if (item.type === "background") {
+      const active = cosmetics.background === "sunset";
+      button.textContent = active ? "Disable" : "Apply";
+      button.addEventListener("click", () => {
+        if (active) {
+          removeCosmetic(item.id);
+        } else {
+          placeCosmetic(item.id);
+        }
+      });
+    } else {
+      const placed = cosmetics.placed[item.id];
+      button.textContent = placed ? "Remove" : "Place";
+      button.addEventListener("click", () => {
+        if (placed) {
+          removeCosmetic(item.id);
+        } else {
+          placeCosmetic(item.id);
+        }
+      });
+    }
+    li.appendChild(info);
+    li.appendChild(button);
+    ownedCosmetics.appendChild(li);
+  });
+}
+
+function renderCosmetics() {
+  applyCosmeticBackground();
+  renderCosmeticShop();
+  renderOwnedCosmetics();
+  if (decorationsLayer) {
+    cosmetics.owned.forEach((itemId) => {
+      const item = getCosmetic(itemId);
+      if (item && item.type !== "background" && cosmetics.placed[itemId]) {
+        placeCosmetic(itemId);
+      }
+    });
+  }
+}
+
+function renderAchievements() {
+  if (!achievementList) {
+    return;
+  }
+  achievementList.innerHTML = "";
+  achievementConfigs.forEach((achievement) => {
+    const li = document.createElement("li");
+    const unlocked = achievements.includes(achievement.id);
+    li.className = `achievement ${unlocked ? "unlocked" : "locked"}`;
+    const title = document.createElement("strong");
+    title.textContent = achievement.title;
+    const desc = document.createElement("p");
+    desc.className = "small";
+    desc.textContent = unlocked ? achievement.description : "???";
+    li.appendChild(title);
+    li.appendChild(desc);
+    achievementList.appendChild(li);
+  });
+}
+
+function setActiveShopTab(tabId) {
+  if (!shopTabs) {
+    return;
+  }
+  shopTabs.querySelectorAll(".tab").forEach((tab) => {
+    tab.classList.toggle("active", tab.dataset.tab === tabId);
+  });
+  document.querySelectorAll("[data-tab-content]").forEach((panel) => {
+    panel.classList.toggle("hidden", panel.dataset.tabContent !== tabId);
+  });
+}
+
+function setupShopTabs() {
+  if (!shopTabs) {
+    return;
+  }
+  shopTabs.querySelectorAll(".tab").forEach((tab) => {
+    tab.addEventListener("click", () => {
+      setActiveShopTab(tab.dataset.tab);
+    });
+  });
+  const active = shopTabs.querySelector(".tab.active");
+  setActiveShopTab(active ? active.dataset.tab : "upgrades");
 }
 
 function scheduleEmail() {
@@ -903,9 +1535,18 @@ function applyUpgrade(key) {
   if (key === "multi-window") {
     upgrades.multiWindow += 1;
   }
+  if (key === "payout-boost") {
+    upgrades.payoutBoost += 1;
+  }
+  if (key === "time-reducer") {
+    upgrades.timeReducer = Math.min(upgrades.timeReducer + 1, 25);
+  }
   saveCurrentSlot();
   refreshUpgrades();
   showToast("Upgrade", "Upgrade installed.");
+  if (countUpgradesPurchased() >= 5) {
+    maybeAward("upgrade-fiend", "Upgrade Fiend", "Bought 5 upgrades.");
+  }
 }
 
 function handleUpgradeClick(event) {
@@ -937,6 +1578,12 @@ function getUpgradeLevel(key) {
   if (key === "multi-window") {
     return upgrades.multiWindow;
   }
+  if (key === "payout-boost") {
+    return upgrades.payoutBoost;
+  }
+  if (key === "time-reducer") {
+    return upgrades.timeReducer;
+  }
   return 0;
 }
 
@@ -966,6 +1613,10 @@ function resolveSimpleBet(label, winChance = 0.5) {
   }
   blackjackPending = 0;
   casinoDouble.classList.add("hidden");
+  casinoBets += 1;
+  if (casinoBets >= 5) {
+    maybeAward("casino-regular", "Casino Regular", "Placed 5 casino bets.");
+  }
   const win = Math.random() < winChance;
   totalMoney += win ? bet : -bet;
   updateMoneyDisplay();
@@ -986,6 +1637,10 @@ function resolveBlackjack() {
     casinoDouble.classList.add("hidden");
     return;
   }
+  casinoBets += 1;
+  if (casinoBets >= 5) {
+    maybeAward("casino-regular", "Casino Regular", "Placed 5 casino bets.");
+  }
   const win = Math.random() < 0.5;
   totalMoney += win ? bet : -bet;
   updateMoneyDisplay();
@@ -999,6 +1654,26 @@ function resolveBlackjack() {
     casinoDouble.classList.add("hidden");
     casinoStatus.textContent = `Blackjack lost $${bet}.`;
   }
+}
+
+function attachCloseHandler(button) {
+  button.addEventListener("click", (event) => {
+    const targetId = event.currentTarget.dataset.close;
+    const windowEl = document.getElementById(targetId);
+    if (!windowEl) {
+      return;
+    }
+    if (windowEl.dataset.windowType === "clicker") {
+      pendingCloseWindow = windowEl;
+      showWindow(confirmCloseWindow);
+      return;
+    }
+    hideWindow(windowEl);
+    if (targetId === "settingsWindow") {
+      titleOverlay.classList.remove("hidden");
+      desktop.classList.add("hidden");
+    }
+  });
 }
 
 bootOverlay.addEventListener("click", handleBootAdvance);
@@ -1023,6 +1698,9 @@ passwordInput.addEventListener("keydown", (event) => {
 });
 
 mailIcon.addEventListener("click", () => {
+  if (wasIconDragged(mailIcon)) {
+    return;
+  }
   showWindow(mailWindow);
   if (hasEmail) {
     mailBadge.classList.add("hidden");
@@ -1045,10 +1723,16 @@ retryDownload.addEventListener("click", () => {
 });
 
 downloadsIcon.addEventListener("click", () => {
+  if (wasIconDragged(downloadsIcon)) {
+    return;
+  }
   showWindow(explorerWindow);
 });
 
 internetIcon.addEventListener("click", () => {
+  if (wasIconDragged(internetIcon)) {
+    return;
+  }
   showWindow(internetWindow);
 });
 
@@ -1057,6 +1741,9 @@ installerFile.addEventListener("click", () => {
 });
 
 casinoIcon.addEventListener("click", () => {
+  if (wasIconDragged(casinoIcon)) {
+    return;
+  }
   showWindow(casinoWindow);
 });
 
@@ -1073,21 +1760,28 @@ casinoDouble.addEventListener("click", () => {
 });
 
 clickerIcon.addEventListener("click", () => {
-  showWindow(clickerWindow);
-  if (!earnInterval) {
-    startEarning();
+  if (wasIconDragged(clickerIcon)) {
+    return;
   }
+  openClickerInstance();
 });
 
 document.querySelectorAll(".upgrade").forEach((button) => {
   button.addEventListener("click", handleUpgradeClick);
 });
 
-earnBar.addEventListener("click", nudgeProgressBar);
+if (openCosmetics) {
+  openCosmetics.addEventListener("click", () => {
+    showWindow(cosmeticsWindow);
+  });
+}
 
 deleteSaveButton.addEventListener("click", deleteSaveData);
 
 trashIcon.addEventListener("click", () => {
+  if (wasIconDragged(trashIcon)) {
+    return;
+  }
   showWindow(trashWindow);
 });
 
@@ -1098,40 +1792,48 @@ trashIcon.addEventListener("contextmenu", (event) => {
 
 confirmCloseYes.addEventListener("click", () => {
   hideWindow(confirmCloseWindow);
-  hideWindow(clickerWindow);
-  if (earnInterval) {
-    clearInterval(earnInterval);
-    earnInterval = null;
+  if (!pendingCloseWindow) {
+    return;
   }
-  startTime = null;
-  earnProgress.style.width = "0%";
+  const instance = clickerInstances.get(pendingCloseWindow.id);
+  if (instance && instance.interval) {
+    clearInterval(instance.interval);
+    instance.interval = null;
+  }
+  if (instance) {
+    instance.startTime = null;
+    instance.progress.style.width = "0%";
+  }
+  hideWindow(pendingCloseWindow);
+  pendingCloseWindow = null;
   resetCombo();
 });
 
 confirmCloseNo.addEventListener("click", () => {
   hideWindow(confirmCloseWindow);
+  pendingCloseWindow = null;
 });
 
 document.querySelectorAll("[data-close]").forEach((button) => {
-  button.addEventListener("click", (event) => {
-    const targetId = event.currentTarget.dataset.close;
-    const windowEl = document.getElementById(targetId);
-    if (targetId === "clickerWindow") {
-      showWindow(confirmCloseWindow);
-      return;
-    }
-    hideWindow(windowEl);
-    if (targetId === "settingsWindow") {
-      titleOverlay.classList.remove("hidden");
-      desktop.classList.add("hidden");
-    }
-  });
+  attachCloseHandler(button);
 });
 
 document.querySelectorAll(".window").forEach((windowEl) => {
-  windowEl.addEventListener("mousedown", () => {
-    focusWindow(windowEl);
-  });
+  registerWindow(windowEl);
+});
+
+if (deleteIconButton) {
+  deleteIconButton.addEventListener("click", deleteIconTarget);
+}
+
+document.addEventListener("click", (event) => {
+  if (!iconContextMenu || iconContextMenu.classList.contains("hidden")) {
+    return;
+  }
+  if (event.target.closest("#iconContextMenu")) {
+    return;
+  }
+  closeIconContextMenu();
 });
 
 updateClock();
@@ -1143,3 +1845,7 @@ setupIconDragging();
 initIconGrid();
 renderTaskbarWindows();
 refreshUpgrades();
+registerClickerInstance(clickerWindow);
+renderCosmetics();
+renderAchievements();
+setupShopTabs();

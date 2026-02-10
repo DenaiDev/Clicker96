@@ -65,26 +65,28 @@
         </span>
       </header>
 
+      <div class="decorations-layer" id="decorationsLayer"></div>
+
       <section class="icons">
-        <button class="icon" id="mailIcon">
+        <button class="icon" id="mailIcon" data-deletable="true">
           <span class="icon-image mail">
             <span class="badge hidden" id="mailBadge">1</span>
           </span>
           Mail
         </button>
-        <button class="icon" id="internetIcon">
+        <button class="icon" id="internetIcon" data-deletable="true">
           <span class="icon-image internet"></span>
           Internet
         </button>
-        <button class="icon hidden" id="casinoIcon">
+        <button class="icon hidden" id="casinoIcon" data-deletable="true">
           <span class="icon-image casino"></span>
           Casino
         </button>
-        <button class="icon hidden" id="downloadsIcon">
+        <button class="icon hidden" id="downloadsIcon" data-deletable="true">
           <span class="icon-image folder"></span>
           Downloads
         </button>
-        <button class="icon hidden" id="clickerIcon">
+        <button class="icon hidden" id="clickerIcon" data-deletable="true">
           <span class="icon-image clicker"></span>
           Clicker96
         </button>
@@ -165,17 +167,17 @@
         </div>
       </div>
 
-      <div class="window hidden" id="clickerWindow">
+      <div class="window hidden" id="clickerWindow" data-window-type="clicker">
         <header class="window-header">
           <span>Clicker96</span>
           <button class="close" data-close="clickerWindow">✕</button>
         </header>
         <div class="window-body">
           <p class="estimate">
-            Estimate: <span id="timeEstimate">~4m 47s</span>
+            Estimate: <span class="time-estimate" data-clicker="estimate">~4m 47s</span>
           </p>
-          <div class="progress-bar large clickable" id="earnBar">
-            <div class="progress" id="earnProgress"></div>
+          <div class="progress-bar large clickable clicker-bar" data-clicker="bar">
+            <div class="progress clicker-progress" data-clicker="progress"></div>
           </div>
           <p class="small">Click the bar to nudge it faster.</p>
         </div>
@@ -188,40 +190,85 @@
         </header>
         <div class="window-body">
           <p class="small">Marketplace - upgrades (coming online)</p>
-          <ul class="upgrade-list">
-            <li>
-              <div>
-                <strong>Estimator Tweaks</strong>
-                <p class="small">Improve time estimate accuracy</p>
-                <p class="small" id="level-estimator">LVL 0/3</p>
-              </div>
-              <button class="retry upgrade" data-upgrade="estimator" data-cost="1">Buy - $1</button>
-            </li>
-            <li>
-              <div>
-                <strong>Bar Tuner I</strong>
-                <p class="small">Click bar speed +5%</p>
-                <p class="small" id="level-bar-tuner">LVL 0/∞</p>
-              </div>
-              <button class="retry upgrade" data-upgrade="bar-tuner" data-cost="1">Buy - $1</button>
-            </li>
-            <li>
-              <div>
-                <strong>Auto-Click Harness</strong>
-                <p class="small">Automates small bar nudges</p>
-                <p class="small" id="level-auto-click">LVL 0/5</p>
-              </div>
-              <button class="retry upgrade" data-upgrade="auto-click" data-cost="3">Buy - $3</button>
-            </li>
-            <li>
-              <div>
-                <strong>Multi-Window Buffer</strong>
-                <p class="small">Run 2 Clicker96 windows at once</p>
-                <p class="small" id="level-multi-window">LVL 0/∞</p>
-              </div>
-              <button class="retry upgrade" data-upgrade="multi-window" data-cost="6">Buy - $6</button>
-            </li>
-          </ul>
+          <div class="tab-bar" id="shopTabs">
+            <button class="tab active" data-tab="upgrades">Clicker96 Upgrades</button>
+            <button class="tab" data-tab="cosmetics">Decorations</button>
+            <button class="tab" data-tab="achievements">Achievements</button>
+          </div>
+          <div class="tab-content" data-tab-content="upgrades">
+            <ul class="upgrade-list">
+              <li>
+                <div>
+                  <strong>Estimator Tweaks</strong>
+                  <p class="small">Improve time estimate accuracy</p>
+                  <p class="small" id="level-estimator">LVL 0/3</p>
+                </div>
+                <button class="retry upgrade" data-upgrade="estimator" data-cost="1">Buy - $1</button>
+              </li>
+              <li>
+                <div>
+                  <strong>Bar Tuner I</strong>
+                  <p class="small">Click bar speed +5%</p>
+                  <p class="small" id="level-bar-tuner">LVL 0/∞</p>
+                </div>
+                <button class="retry upgrade" data-upgrade="bar-tuner" data-cost="1">Buy - $1</button>
+              </li>
+              <li>
+                <div>
+                  <strong>Auto-Click Harness</strong>
+                  <p class="small">Automates small bar nudges</p>
+                  <p class="small" id="level-auto-click">LVL 0/5</p>
+                </div>
+                <button class="retry upgrade" data-upgrade="auto-click" data-cost="3">Buy - $3</button>
+              </li>
+              <li>
+                <div>
+                  <strong>Multi-Window Buffer</strong>
+                  <p class="small">Run 2 Clicker96 windows at once</p>
+                  <p class="small" id="level-multi-window">LVL 0/∞</p>
+                </div>
+                <button class="retry upgrade" data-upgrade="multi-window" data-cost="6">Buy - $6</button>
+              </li>
+              <li>
+                <div>
+                  <strong>Revenue Multiplier</strong>
+                  <p class="small">Progress bar payout +$1 per level</p>
+                  <p class="small" id="level-payout-boost">LVL 0/∞</p>
+                </div>
+                <button class="retry upgrade" data-upgrade="payout-boost" data-cost="5">Buy - $5</button>
+              </li>
+              <li>
+                <div>
+                  <strong>Chrono Stabilizer</strong>
+                  <p class="small">Reduce bar time by 10s per level</p>
+                  <p class="small" id="level-time-reducer">LVL 0/25</p>
+                </div>
+                <button class="retry upgrade" data-upgrade="time-reducer" data-cost="20">
+                  Buy - $20
+                </button>
+              </li>
+            </ul>
+          </div>
+          <div class="tab-content hidden" data-tab-content="cosmetics">
+            <p class="small">Purely cosmetic desktop decorations.</p>
+            <ul class="cosmetic-list" id="cosmeticShopList"></ul>
+            <button class="retry" id="openCosmetics">Open Cosmetics Shelf</button>
+          </div>
+          <div class="tab-content hidden" data-tab-content="achievements">
+            <p class="small">Unlocked achievements show full details.</p>
+            <ul class="achievement-list" id="achievementList"></ul>
+          </div>
+        </div>
+      </div>
+
+      <div class="window hidden" id="cosmeticsWindow">
+        <header class="window-header">
+          <span>Cosmetics</span>
+          <button class="close" data-close="cosmeticsWindow">✕</button>
+        </header>
+        <div class="window-body">
+          <p class="small">Place or remove your purchased decor.</p>
+          <ul class="cosmetic-list" id="ownedCosmetics"></ul>
         </div>
       </div>
 
@@ -280,6 +327,10 @@
     <div class="toast hidden" id="toast">
       <div class="toast-title" id="toastTitle"></div>
       <div class="toast-body" id="toastBody"></div>
+    </div>
+
+    <div class="context-menu hidden" id="iconContextMenu">
+      <button id="deleteIconButton">Delete App</button>
     </div>
 
     <script src="script.js"></script>

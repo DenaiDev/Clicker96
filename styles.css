@@ -175,6 +175,7 @@ body {
   width: 100%;
   height: calc(100vh - 40px);
   position: relative;
+  z-index: 1;
 }
 
 .icon {
@@ -383,6 +384,114 @@ body {
   padding: 0.5rem 0.6rem;
   border: 1px solid #2f3f5e;
   background: #141b2a;
+}
+
+.tab-bar {
+  display: flex;
+  gap: 0.4rem;
+  margin-top: 0.6rem;
+  flex-wrap: wrap;
+}
+
+.tab {
+  background: #1b263b;
+  border: 1px solid #334a6b;
+  color: #d7e1f3;
+  padding: 0.3rem 0.6rem;
+  font-size: 0.75rem;
+  cursor: pointer;
+}
+
+.tab.active {
+  background: #2d3a52;
+}
+
+.tab-content {
+  margin-top: 0.75rem;
+}
+
+.cosmetic-list,
+.achievement-list {
+  list-style: none;
+  padding: 0;
+  margin: 0.6rem 0 0;
+  display: grid;
+  gap: 0.6rem;
+}
+
+.cosmetic-item,
+.achievement {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0.5rem 0.6rem;
+  border: 1px solid #2f3f5e;
+  background: #141b2a;
+}
+
+.achievement.locked {
+  opacity: 0.6;
+  filter: grayscale(0.5);
+}
+
+.achievement.locked strong {
+  color: #a5b3cc;
+}
+
+.context-menu {
+  position: fixed;
+  z-index: 20;
+  background: #1a2233;
+  border: 2px solid #2f3f5e;
+  padding: 0.4rem;
+  display: grid;
+  gap: 0.4rem;
+}
+
+.context-menu button {
+  background: #3d4c6a;
+  border: none;
+  color: #e8e8f0;
+  padding: 0.3rem 0.6rem;
+  cursor: pointer;
+  font-size: 0.75rem;
+}
+
+.decorations-layer {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 0;
+}
+
+.decoration {
+  pointer-events: auto;
+  position: absolute;
+  border: 1px solid #3d4c6a;
+  background: rgba(18, 24, 36, 0.8);
+  color: #e8e8f0;
+  padding: 0.4rem 0.6rem;
+  border-radius: 6px;
+  cursor: grab;
+}
+
+.decoration:active {
+  cursor: grabbing;
+}
+
+.decoration.spin {
+  animation: spin 0.6s linear;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+body.cosmetic-sunset {
+  background: radial-gradient(circle at top, #3a2a4f, #1b0f22 70%);
 }
 
 .toast {
