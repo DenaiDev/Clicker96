@@ -60,16 +60,30 @@ const casinoWindow = document.getElementById("casinoWindow");
 const casinoBetInput = document.getElementById("casinoBetInput");
 const casinoCoinflip = document.getElementById("casinoCoinflip");
 const casinoBlackjack = document.getElementById("casinoBlackjack");
-const casinoDouble = document.getElementById("casinoDouble");
+const casinoHit = document.getElementById("casinoHit");
+const casinoStand = document.getElementById("casinoStand");
+const casinoCards = document.getElementById("casinoCards");
 const casinoStatus = document.getElementById("casinoStatus");
 const iconsContainer = document.querySelector(".icons");
 const decorationsLayer = document.getElementById("decorationsLayer");
 const shopTabs = document.getElementById("shopTabs");
+const songShopList = document.getElementById("songShopList");
 const achievementList = document.getElementById("achievementList");
+const desktopSettingsTabs = document.getElementById("desktopSettingsTabs");
+const desktopSettingsIcon = document.getElementById("desktopSettingsIcon");
+const desktopSettingsWindow = document.getElementById("desktopSettingsWindow");
+const audioStatus = document.getElementById("audioStatus");
+const toggleAudioButton = document.getElementById("toggleAudioButton");
+const logoutButton = document.getElementById("logoutButton");
 const cosmeticShopList = document.getElementById("cosmeticShopList");
 const openCosmetics = document.getElementById("openCosmetics");
 const cosmeticsWindow = document.getElementById("cosmeticsWindow");
 const ownedCosmetics = document.getElementById("ownedCosmetics");
+const jukeboxIcon = document.getElementById("jukeboxIcon");
+const jukeboxWindow = document.getElementById("jukeboxWindow");
+const jukeboxTrackList = document.getElementById("jukeboxTrackList");
+const jukeboxNowPlaying = document.getElementById("jukeboxNowPlaying");
+const jukeboxStop = document.getElementById("jukeboxStop");
 const iconContextMenu = document.getElementById("iconContextMenu");
 const deleteIconButton = document.getElementById("deleteIconButton");
 const levelEstimator = document.getElementById("level-estimator");
@@ -102,11 +116,16 @@ let comboDrainInterval = null;
 let comboRemaining = 10000;
 let mailStage = 0;
 let totalClicks = 0;
-let blackjackPending = 0;
+let blackjackState = null;
 let downloadRetryCount = 0;
 let casinoBets = 0;
 let iconKeyCounter = 0;
 let isLoadingSlot = false;
+let unlockedSongs = ["w96-ambient"];
+let currentTrack = null;
+let audioEnabled = true;
+let sfxVolume = 0.4;
+let musicVolume = 0.5;
 let upgrades = {
   estimator: 0,
   barTuner: 0,
@@ -122,6 +141,16 @@ const wrongPasswordMessages = [
   "Hmm... that didn't work.",
 ];
 
+const secretPasswords = {
+  sans: {
+    message: "You feel like a bad time is approaching.",
+    achievementId: "sans",
+    achievementTitle: "Sans?",
+    achievementBody: "You typed a suspicious password.",
+    unlockSong: "sans-theme",
+  },
+};
+
 const gridSize = { x: 88, y: 92 };
 const accuracyLevels = ["low", "medium", "high", "precise"];
 const iconDefaults = {
@@ -130,7 +159,9 @@ const iconDefaults = {
   downloadsIcon: { x: 0, y: 2 },
   clickerIcon: { x: 0, y: 3 },
   casinoIcon: { x: 0, y: 4 },
-  trashIcon: { x: 0, y: 5 },
+  jukeboxIcon: { x: 0, y: 5 },
+  desktopSettingsIcon: { x: 0, y: 6 },
+  trashIcon: { x: 0, y: 7 },
 };
 const upgradeConfigs = {
   estimator: { max: 3, base: 1, scale: 2, levelEl: levelEstimator },
@@ -153,6 +184,8 @@ const achievementConfigs = [
   { id: "dual-wield", title: "Dual Wield", description: "Opened two Clicker96 windows." },
   { id: "casino-regular", title: "Casino Regular", description: "Placed 5 casino bets." },
   { id: "rapid-clicker", title: "Rapid Clicker", description: "Clicked the bar 25 times." },
+  { id: "sans", title: "Sans?", description: "You entered a secret password." },
+  { id: "jukebox-on", title: "DJ", description: "Played your first music track." },
 ];
 
 const cosmeticCatalog = [
@@ -193,6 +226,24 @@ const cosmeticCatalog = [
   },
 ];
 
+
+const songCatalog = [
+  { id: "w96-ambient", title: "Windows96 Ambient", cost: 0, source: null, unlockedByDefault: true },
+  { id: "crt-dream", title: "CRT Dream", cost: 14, source: null },
+  { id: "dialup-disco", title: "Dialup Disco", cost: 22, source: null },
+  { id: "sans-theme", title: "Sans' Theme", cost: 0, source: null, secret: true },
+];
+
+const audioAssets = {
+  click: null,
+  windowOpen: null,
+  windowClose: null,
+  success: null,
+  error: null,
+};
+
+const audioCache = new Map();
+
 function updateClock() {
   const now = new Date();
   clock.textContent = now.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
@@ -203,12 +254,14 @@ function showWindow(windowEl) {
   openedWindows.add(windowEl.id);
   focusWindow(windowEl);
   renderTaskbarWindows();
+  playSfx("windowOpen");
 }
 
 function hideWindow(windowEl) {
   windowEl.classList.add("hidden");
   openedWindows.delete(windowEl.id);
   renderTaskbarWindows();
+  playSfx("windowClose");
 }
 
 function renderTaskbarWindows() {
@@ -247,6 +300,96 @@ function renderTaskbarWindows() {
 function focusWindow(windowEl) {
   windowZ += 1;
   windowEl.style.zIndex = String(windowZ);
+}
+
+function getAudio(path, volume = 1) {
+  if (!path) {
+    return null;
+  }
+  const cacheKey = `${path}|${volume}`;
+  if (!audioCache.has(cacheKey)) {
+    const audio = new Audio(path);
+    audio.volume = volume;
+    audioCache.set(cacheKey, audio);
+  }
+  return audioCache.get(cacheKey);
+}
+
+function playSfx(type) {
+  if (!audioEnabled) {
+    return;
+  }
+  const path = audioAssets[type];
+  if (!path) {
+    return;
+  }
+  const audio = getAudio(path, sfxVolume);
+  if (!audio) {
+    return;
+  }
+  audio.currentTime = 0;
+  audio.play().catch(() => {});
+}
+
+function getSong(songId) {
+  return songCatalog.find((song) => song.id === songId);
+}
+
+function isSongUnlocked(songId) {
+  return unlockedSongs.includes(songId);
+}
+
+function unlockSong(songId) {
+  if (!songId || isSongUnlocked(songId)) {
+    return;
+  }
+  unlockedSongs.push(songId);
+  const song = getSong(songId);
+  showToast("New Disc", song ? `${song.title} unlocked.` : "New song unlocked.");
+  if (jukeboxIcon.classList.contains("hidden")) {
+    jukeboxIcon.classList.remove("hidden");
+    ensureIconPlacement(jukeboxIcon);
+  }
+  saveCurrentSlot();
+  renderSongShop();
+  renderJukeboxTracks();
+}
+
+function playSong(songId) {
+  if (!audioEnabled || !isSongUnlocked(songId)) {
+    return;
+  }
+  const song = getSong(songId);
+  if (!song) {
+    return;
+  }
+  if (currentTrack && currentTrack.audio) {
+    currentTrack.audio.pause();
+    currentTrack.audio.currentTime = 0;
+  }
+  const audio = song.source ? getAudio(song.source, musicVolume) : null;
+  currentTrack = { id: songId, audio };
+  jukeboxNowPlaying.textContent = song.title;
+  if (audio) {
+    audio.loop = true;
+    audio.play().catch(() => {});
+  }
+  maybeAward("jukebox-on", "DJ", "Played your first music track.");
+  saveCurrentSlot();
+  renderJukeboxTracks();
+}
+
+function stopSong() {
+  if (currentTrack && currentTrack.audio) {
+    currentTrack.audio.pause();
+    currentTrack.audio.currentTime = 0;
+  }
+  currentTrack = null;
+  if (jukeboxNowPlaying) {
+    jukeboxNowPlaying.textContent = "None";
+  }
+  saveCurrentSlot();
+  renderJukeboxTracks();
 }
 
 function startDownloadSequence() {
@@ -460,6 +603,7 @@ function updateMoneyDisplay() {
   refreshUpgrades();
   renderCosmeticShop();
   renderOwnedCosmetics();
+  renderSongShop();
   checkMoneyAchievements();
 }
 
@@ -493,12 +637,18 @@ function loadSlot() {
       timeReducer: 0,
     };
     casinoBets = 0;
+    unlockedSongs = ["w96-ambient"];
+    currentTrack = null;
+    audioEnabled = true;
+    sfxVolume = 0.4;
+    musicVolume = 0.5;
     updateMoneyDisplay();
     renderDownloads();
     renderTrash();
     renderCosmetics();
     renderAchievements();
     applyDesktopState(null);
+    jukeboxIcon.classList.remove("hidden");
     isLoadingSlot = false;
     return false;
   }
@@ -520,17 +670,32 @@ function loadSlot() {
   upgrades.timeReducer = Number(upgrades.timeReducer) || 0;
   mailStage = data.mailStage ?? 0;
   casinoBets = data.casinoBets ?? 0;
+  unlockedSongs = data.unlockedSongs ?? ["w96-ambient"];
+  currentTrack = null;
+  audioEnabled = data.audioEnabled ?? true;
+  sfxVolume = data.sfxVolume ?? 0.4;
+  musicVolume = data.musicVolume ?? 0.5;
   updateMoneyDisplay();
   renderDownloads();
   renderTrash();
   renderCosmetics();
   renderAchievements();
   applyDesktopState(data.desktopState);
+  if (!data.desktopState && unlockedSongs.length > 0) {
+    jukeboxIcon.classList.remove("hidden");
+    ensureIconPlacement(jukeboxIcon);
+  }
   if (downloads.length > 0) {
     downloadsIcon.classList.remove("hidden");
     ensureIconPlacement(downloadsIcon);
   }
   setMailContent();
+  renderSongShop();
+  renderJukeboxTracks();
+  updateAudioStatus();
+  if (data.currentTrackId && isSongUnlocked(data.currentTrackId)) {
+    playSong(data.currentTrackId);
+  }
   isLoadingSlot = false;
   return true;
 }
@@ -545,6 +710,11 @@ function saveCurrentSlot() {
     upgrades,
     mailStage,
     casinoBets,
+    unlockedSongs,
+    currentTrackId: currentTrack ? currentTrack.id : null,
+    audioEnabled,
+    sfxVolume,
+    musicVolume,
     desktopState: collectDesktopState(),
   };
   localStorage.setItem(currentSlotKey(), JSON.stringify(data));
@@ -569,6 +739,9 @@ function startGameAction() {
     };
     mailStage = 0;
     casinoBets = 0;
+    unlockedSongs = ["w96-ambient"];
+    currentTrack = null;
+    audioEnabled = true;
     downloadsIcon.classList.add("hidden");
     updateMoneyDisplay();
     saveCurrentSlot();
@@ -593,19 +766,36 @@ function refreshTitleAction() {
     : "No save data found for this slot.";
 }
 
+function processSecretPassword(value) {
+  const key = value.toLowerCase();
+  if (!secretPasswords[key]) {
+    return false;
+  }
+  const secret = secretPasswords[key];
+  loginStatus.textContent = secret.message;
+  maybeAward(secret.achievementId, secret.achievementTitle, secret.achievementBody);
+  unlockSong(secret.unlockSong);
+  return true;
+}
+
 function handleLogin() {
   const value = passwordInput.value.trim();
-  if (value.length !== 6) {
-    loginStatus.textContent = "Password must be 6 digits.";
+  if (value.length < 1 || value.length > 25) {
+    loginStatus.textContent = "Password must be between 1 and 25 characters.";
+    return;
+  }
+  if (processSecretPassword(value)) {
     return;
   }
   if (value !== "123456") {
     const message =
       wrongPasswordMessages[Math.floor(Math.random() * wrongPasswordMessages.length)];
     loginStatus.textContent = message;
+    playSfx("error");
     return;
   }
   loginStatus.textContent = "Welcome back.";
+  playSfx("success");
   proceedToDesktop();
 }
 
@@ -1422,6 +1612,101 @@ function setupShopTabs() {
   setActiveShopTab(active ? active.dataset.tab : "upgrades");
 }
 
+function setupDesktopSettingsTabs() {
+  if (!desktopSettingsTabs) {
+    return;
+  }
+  desktopSettingsTabs.querySelectorAll(".tab").forEach((tab) => {
+    tab.addEventListener("click", () => {
+      desktopSettingsTabs.querySelectorAll(".tab").forEach((other) => {
+        other.classList.toggle("active", other === tab);
+      });
+      document.querySelectorAll("[data-settings-content]").forEach((panel) => {
+        panel.classList.toggle("hidden", panel.dataset.settingsContent !== tab.dataset.settingsTab);
+      });
+    });
+  });
+}
+
+function updateAudioStatus() {
+  if (!audioStatus) {
+    return;
+  }
+  const state = audioEnabled ? "enabled" : "muted";
+  audioStatus.textContent = `Master audio ${state}.`;
+}
+
+function renderSongShop() {
+  if (!songShopList) {
+    return;
+  }
+  songShopList.innerHTML = "";
+  songCatalog.forEach((song) => {
+    const li = document.createElement("li");
+    li.className = "cosmetic-item";
+    const info = document.createElement("div");
+    const sourceLabel = song.source ? "configured" : "(set source later)";
+    info.innerHTML = `<strong>${song.title}</strong><p class="small">Disc source: ${sourceLabel}</p>`;
+    const button = document.createElement("button");
+    button.className = "retry";
+    if (isSongUnlocked(song.id)) {
+      button.textContent = "Unlocked";
+      button.disabled = true;
+    } else if (song.secret) {
+      button.textContent = "???";
+      button.disabled = true;
+    } else {
+      button.textContent = `Buy - $${song.cost}`;
+      button.disabled = totalMoney < song.cost;
+      button.addEventListener("click", () => {
+        if (totalMoney < song.cost) {
+          return;
+        }
+        totalMoney -= song.cost;
+        updateMoneyDisplay();
+        unlockSong(song.id);
+      });
+    }
+    li.appendChild(info);
+    li.appendChild(button);
+    songShopList.appendChild(li);
+  });
+}
+
+function renderJukeboxTracks() {
+  if (!jukeboxTrackList) {
+    return;
+  }
+  jukeboxTrackList.innerHTML = "";
+  const tracks = songCatalog.filter((song) => isSongUnlocked(song.id));
+  if (tracks.length === 0) {
+    const li = document.createElement("li");
+    li.textContent = "No tracks unlocked yet.";
+    jukeboxTrackList.appendChild(li);
+    return;
+  }
+  tracks.forEach((song) => {
+    const li = document.createElement("li");
+    li.className = "cosmetic-item";
+    const info = document.createElement("div");
+    info.innerHTML = `<strong>${song.title}</strong>`;
+    const button = document.createElement("button");
+    button.className = "retry";
+    button.textContent = currentTrack && currentTrack.id === song.id ? "Playing" : "Play";
+    button.disabled = currentTrack && currentTrack.id === song.id;
+    button.addEventListener("click", () => {
+      playSong(song.id);
+    });
+    li.appendChild(info);
+    li.appendChild(button);
+    jukeboxTrackList.appendChild(li);
+  });
+  if (jukeboxNowPlaying) {
+    const song = currentTrack ? getSong(currentTrack.id) : null;
+    jukeboxNowPlaying.textContent = song ? song.title : "None";
+  }
+}
+
 function scheduleEmail() {
   if (mailStage >= 1) {
     setMailContent();
@@ -1606,13 +1891,180 @@ function getBetAmount() {
   return Math.floor(raw);
 }
 
+function buildDeck() {
+  const ranks = ["A", "2", "3", "4", "5", "6", "7", "8", "9", "10", "J", "Q", "K"];
+  const suits = ["♠", "♥", "♦", "♣"];
+  const deck = [];
+  ranks.forEach((rank) => {
+    suits.forEach((suit) => {
+      deck.push({ rank, suit });
+    });
+  });
+  for (let i = deck.length - 1; i > 0; i -= 1) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [deck[i], deck[j]] = [deck[j], deck[i]];
+  }
+  return deck;
+}
+
+function drawCard(state) {
+  const card = state.deck.pop();
+  return card || { rank: "A", suit: "♠" };
+}
+
+function handValue(hand) {
+  let total = 0;
+  let aces = 0;
+  hand.forEach((card) => {
+    if (["J", "Q", "K"].includes(card.rank)) {
+      total += 10;
+    } else if (card.rank === "A") {
+      total += 11;
+      aces += 1;
+    } else {
+      total += Number(card.rank);
+    }
+  });
+  while (total > 21 && aces > 0) {
+    total -= 10;
+    aces -= 1;
+  }
+  return total;
+}
+
+function formatHand(hand, hideSecond = false) {
+  return hand
+    .map((card, index) => {
+      if (hideSecond && index === 1) {
+        return "[??]";
+      }
+      return `[${card.rank}${card.suit}]`;
+    })
+    .join(" ");
+}
+
+function renderBlackjackBoard(revealDealer = false) {
+  if (!blackjackState) {
+    casinoCards.textContent = "";
+    return;
+  }
+  const playerScore = handValue(blackjackState.player);
+  const dealerScore = handValue(blackjackState.dealer);
+  const dealerLine = revealDealer
+    ? `Dealer: ${formatHand(blackjackState.dealer)} (${dealerScore})`
+    : `Dealer: ${formatHand(blackjackState.dealer, true)} (?)`;
+  const playerLine = `You: ${formatHand(blackjackState.player)} (${playerScore})`;
+  casinoCards.textContent = `${dealerLine} | ${playerLine}`;
+}
+
+function finishBlackjack(result, payout = 0) {
+  casinoHit.classList.add("hidden");
+  casinoStand.classList.add("hidden");
+  const bet = blackjackState ? blackjackState.bet : 0;
+  if (result === "win") {
+    totalMoney += bet + payout;
+    casinoStatus.textContent = `Blackjack win! +$${bet + payout}`;
+  } else if (result === "push") {
+    totalMoney += bet;
+    casinoStatus.textContent = "Push. Your bet was returned.";
+  } else {
+    casinoStatus.textContent = `Dealer wins. You lost $${bet}.`;
+  }
+  updateMoneyDisplay();
+  saveCurrentSlot();
+  renderBlackjackBoard(true);
+  blackjackState = null;
+}
+
+function dealerTurn() {
+  if (!blackjackState) {
+    return;
+  }
+  while (handValue(blackjackState.dealer) < 17) {
+    blackjackState.dealer.push(drawCard(blackjackState));
+  }
+  const playerScore = handValue(blackjackState.player);
+  const dealerScore = handValue(blackjackState.dealer);
+  if (dealerScore > 21 || playerScore > dealerScore) {
+    finishBlackjack("win");
+    return;
+  }
+  if (dealerScore === playerScore) {
+    finishBlackjack("push");
+    return;
+  }
+  finishBlackjack("lose");
+}
+
+function startBlackjackRound() {
+  const bet = getBetAmount();
+  if (!bet) {
+    return;
+  }
+  totalMoney -= bet;
+  casinoBets += 1;
+  if (casinoBets >= 5) {
+    maybeAward("casino-regular", "Casino Regular", "Placed 5 casino bets.");
+  }
+  blackjackState = {
+    bet,
+    deck: buildDeck(),
+    player: [],
+    dealer: [],
+  };
+  blackjackState.player.push(drawCard(blackjackState), drawCard(blackjackState));
+  blackjackState.dealer.push(drawCard(blackjackState), drawCard(blackjackState));
+  casinoHit.classList.remove("hidden");
+  casinoStand.classList.remove("hidden");
+  const playerScore = handValue(blackjackState.player);
+  const dealerScore = handValue(blackjackState.dealer);
+  updateMoneyDisplay();
+  renderBlackjackBoard(false);
+  if (playerScore === 21 && dealerScore === 21) {
+    finishBlackjack("push");
+    return;
+  }
+  if (playerScore === 21) {
+    finishBlackjack("win", Math.floor(bet * 0.5));
+    return;
+  }
+  if (dealerScore === 21) {
+    finishBlackjack("lose");
+    return;
+  }
+  casinoStatus.textContent = "Blackjack started. Hit or stand.";
+}
+
+function hitBlackjack() {
+  if (!blackjackState) {
+    casinoStatus.textContent = "Start a blackjack round first.";
+    return;
+  }
+  blackjackState.player.push(drawCard(blackjackState));
+  const playerScore = handValue(blackjackState.player);
+  renderBlackjackBoard(false);
+  if (playerScore > 21) {
+    finishBlackjack("lose");
+  }
+}
+
+function standBlackjack() {
+  if (!blackjackState) {
+    casinoStatus.textContent = "Start a blackjack round first.";
+    return;
+  }
+  dealerTurn();
+}
+
 function resolveSimpleBet(label, winChance = 0.5) {
   const bet = getBetAmount();
   if (!bet) {
     return;
   }
-  blackjackPending = 0;
-  casinoDouble.classList.add("hidden");
+  blackjackState = null;
+  casinoHit.classList.add("hidden");
+  casinoStand.classList.add("hidden");
+  casinoCards.textContent = "";
   casinoBets += 1;
   if (casinoBets >= 5) {
     maybeAward("casino-regular", "Casino Regular", "Placed 5 casino bets.");
@@ -1627,33 +2079,11 @@ function resolveSimpleBet(label, winChance = 0.5) {
 }
 
 function resolveBlackjack() {
-  const bet = blackjackPending || getBetAmount();
-  if (!bet) {
+  if (!blackjackState) {
+    startBlackjackRound();
     return;
   }
-  if (bet > totalMoney) {
-    casinoStatus.textContent = "Not enough funds for the double.";
-    blackjackPending = 0;
-    casinoDouble.classList.add("hidden");
-    return;
-  }
-  casinoBets += 1;
-  if (casinoBets >= 5) {
-    maybeAward("casino-regular", "Casino Regular", "Placed 5 casino bets.");
-  }
-  const win = Math.random() < 0.5;
-  totalMoney += win ? bet : -bet;
-  updateMoneyDisplay();
-  saveCurrentSlot();
-  if (win) {
-    blackjackPending = bet * 2;
-    casinoStatus.textContent = `Blackjack win! Double to $${blackjackPending}?`;
-    casinoDouble.classList.remove("hidden");
-  } else {
-    blackjackPending = 0;
-    casinoDouble.classList.add("hidden");
-    casinoStatus.textContent = `Blackjack lost $${bet}.`;
-  }
+  hitBlackjack();
 }
 
 function attachCloseHandler(button) {
@@ -1736,6 +2166,20 @@ internetIcon.addEventListener("click", () => {
   showWindow(internetWindow);
 });
 
+jukeboxIcon.addEventListener("click", () => {
+  if (wasIconDragged(jukeboxIcon)) {
+    return;
+  }
+  showWindow(jukeboxWindow);
+});
+
+desktopSettingsIcon.addEventListener("click", () => {
+  if (wasIconDragged(desktopSettingsIcon)) {
+    return;
+  }
+  showWindow(desktopSettingsWindow);
+});
+
 installerFile.addEventListener("click", () => {
   startInstallSequence();
 });
@@ -1752,11 +2196,15 @@ casinoCoinflip.addEventListener("click", () => {
 });
 
 casinoBlackjack.addEventListener("click", () => {
-  resolveBlackjack();
+  startBlackjackRound();
 });
 
-casinoDouble.addEventListener("click", () => {
-  resolveBlackjack();
+casinoHit.addEventListener("click", () => {
+  hitBlackjack();
+});
+
+casinoStand.addEventListener("click", () => {
+  standBlackjack();
 });
 
 clickerIcon.addEventListener("click", () => {
@@ -1773,6 +2221,31 @@ document.querySelectorAll(".upgrade").forEach((button) => {
 if (openCosmetics) {
   openCosmetics.addEventListener("click", () => {
     showWindow(cosmeticsWindow);
+  });
+}
+
+if (jukeboxStop) {
+  jukeboxStop.addEventListener("click", () => {
+    stopSong();
+  });
+}
+
+if (toggleAudioButton) {
+  toggleAudioButton.addEventListener("click", () => {
+    audioEnabled = !audioEnabled;
+    updateAudioStatus();
+    if (!audioEnabled) {
+      stopSong();
+    }
+    saveCurrentSlot();
+  });
+}
+
+if (logoutButton) {
+  logoutButton.addEventListener("click", () => {
+    stopSong();
+    desktop.classList.add("hidden");
+    openLoginScreen();
   });
 }
 
@@ -1836,6 +2309,12 @@ document.addEventListener("click", (event) => {
   closeIconContextMenu();
 });
 
+document.addEventListener("click", (event) => {
+  if (event.target.closest("button") || event.target.closest(".icon")) {
+    playSfx("click");
+  }
+});
+
 updateClock();
 setInterval(updateClock, 1000);
 refreshTitleAction();
@@ -1848,4 +2327,8 @@ refreshUpgrades();
 registerClickerInstance(clickerWindow);
 renderCosmetics();
 renderAchievements();
+renderSongShop();
+renderJukeboxTracks();
 setupShopTabs();
+setupDesktopSettingsTabs();
+updateAudioStatus();

@@ -46,8 +46,7 @@
         <input
           type="password"
           id="passwordInput"
-          maxlength="6"
-          inputmode="numeric"
+          maxlength="25"
           placeholder="Password (123456)"
         />
         <button id="loginButton">Login</button>
@@ -89,6 +88,14 @@
         <button class="icon hidden" id="clickerIcon" data-deletable="true">
           <span class="icon-image clicker"></span>
           Clicker96
+        </button>
+        <button class="icon hidden" id="jukeboxIcon" data-deletable="true">
+          <span class="icon-image jukebox"></span>
+          Jukebox
+        </button>
+        <button class="icon" id="desktopSettingsIcon">
+          <span class="icon-image cog"></span>
+          Settings
         </button>
         <button class="icon" id="trashIcon">
           <span class="icon-image trash"></span>
@@ -193,7 +200,7 @@
           <div class="tab-bar" id="shopTabs">
             <button class="tab active" data-tab="upgrades">Clicker96 Upgrades</button>
             <button class="tab" data-tab="cosmetics">Decorations</button>
-            <button class="tab" data-tab="achievements">Achievements</button>
+            <button class="tab" data-tab="songs">Songs</button>
           </div>
           <div class="tab-content" data-tab-content="upgrades">
             <ul class="upgrade-list">
@@ -254,7 +261,49 @@
             <ul class="cosmetic-list" id="cosmeticShopList"></ul>
             <button class="retry" id="openCosmetics">Open Cosmetics Shelf</button>
           </div>
-          <div class="tab-content hidden" data-tab-content="achievements">
+          <div class="tab-content hidden" data-tab-content="songs">
+            <p class="small">Unlock discs for your jukebox.</p>
+            <ul class="cosmetic-list" id="songShopList"></ul>
+          </div>
+        </div>
+      </div>
+
+      <div class="window hidden" id="jukeboxWindow">
+        <header class="window-header">
+          <span>Jukebox</span>
+          <button class="close" data-close="jukeboxWindow">✕</button>
+        </header>
+        <div class="window-body">
+          <p class="small">Now Playing: <span id="jukeboxNowPlaying">None</span></p>
+          <ul class="cosmetic-list" id="jukeboxTrackList"></ul>
+          <div class="confirm-actions">
+            <button id="jukeboxStop">Stop</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="window hidden" id="desktopSettingsWindow">
+        <header class="window-header">
+          <span>Desktop Settings</span>
+          <button class="close" data-close="desktopSettingsWindow">✕</button>
+        </header>
+        <div class="window-body">
+          <div class="tab-bar" id="desktopSettingsTabs">
+            <button class="tab active" data-settings-tab="audio">Audio</button>
+            <button class="tab" data-settings-tab="graphics">Graphics</button>
+            <button class="tab" data-settings-tab="achievements">Achievements</button>
+          </div>
+          <div class="tab-content" data-settings-content="audio">
+            <p class="small" id="audioStatus">Master audio enabled.</p>
+            <div class="confirm-actions">
+              <button id="toggleAudioButton">Toggle Audio</button>
+              <button id="logoutButton">Logout</button>
+            </div>
+          </div>
+          <div class="tab-content hidden" data-settings-content="graphics">
+            <p class="small">Future graphics options go here (filters, glow, CRT, etc.).</p>
+          </div>
+          <div class="tab-content hidden" data-settings-content="achievements">
             <p class="small">Unlocked achievements show full details.</p>
             <ul class="achievement-list" id="achievementList"></ul>
           </div>
@@ -308,8 +357,10 @@
           <div class="confirm-actions">
             <button id="casinoCoinflip">50/50</button>
             <button id="casinoBlackjack">Blackjack</button>
-            <button id="casinoDouble" class="hidden">Double Down</button>
+            <button id="casinoHit" class="hidden">Hit</button>
+            <button id="casinoStand" class="hidden">Stand</button>
           </div>
+          <p class="small" id="casinoCards"></p>
           <p class="small" id="casinoStatus">Pick a game to start.</p>
         </div>
       </div>

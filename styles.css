@@ -91,6 +91,7 @@ body {
   border-radius: 12px;
   background: linear-gradient(135deg, #3c4f74, #1d2740);
   border: 2px solid #5c76a6;
+  justify-self: center;
 }
 
 .login-label {
@@ -216,6 +217,14 @@ body {
 
 .icon-image.casino {
   background: linear-gradient(135deg, #ff7a7a, #c04848);
+}
+
+.icon-image.jukebox {
+  background: linear-gradient(135deg, #b289ff, #6d4cb5);
+}
+
+.icon-image.cog {
+  background: linear-gradient(135deg, #c5d0df, #6d7c96);
 }
 
 .icon-image.folder {
@@ -408,6 +417,10 @@ body {
 
 .tab-content {
   margin-top: 0.75rem;
+}
+
+.tab-content .confirm-actions {
+  justify-content: flex-start;
 }
 
 .cosmetic-list,
