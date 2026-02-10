@@ -1909,10 +1909,49 @@ function pipeConnections(cell) {
   return [];
 }
 
+function randomPipeEndpoints(size) {
+  const start = {
+    x: Math.floor(Math.random() * size),
+    y: Math.floor(Math.random() * size),
+  };
+  let end = { x: start.x, y: start.y };
+  let safety = 0;
+  while (safety < 200) {
+    end = {
+      x: Math.floor(Math.random() * size),
+      y: Math.floor(Math.random() * size),
+    };
+    const distance = Math.abs(start.x - end.x) + Math.abs(start.y - end.y);
+    if (distance >= 5) {
+      break;
+    }
+    safety += 1;
+  }
+  return { start, end };
+}
+
+function pipeCellGlyph(cell) {
+  if (!cell) {
+    return "+";
+  }
+  const rot = ((cell.rot || 0) % 360 + 360) % 360;
+  if (cell.type === "line") {
+    return rot % 180 === 0 ? "│" : "─";
+  }
+  if (cell.type === "corner") {
+    if (rot === 0) return "└";
+    if (rot === 90) return "┌";
+    if (rot === 180) return "┐";
+    return "┘";
+  }
+  return "+";
+}
+
 function startPipeGame() {
   const size = 6;
-  const start = { x: 0, y: 0 };
-  const end = { x: 5, y: 5 };
+  const endpoints = randomPipeEndpoints(size);
+  const start = endpoints.start;
+  const end = endpoints.end;
   pipeGame = { size, start, end, selectedType: "line", selectedIndex: null, cells: Array(size * size).fill(null), timeLeft: 60, timer: null };
   renderPipeGrid();
   if (pipeGame.timer) clearInterval(pipeGame.timer);
@@ -1948,18 +1987,29 @@ function renderPipeGrid() {
       btn.classList.add("end");
       btn.textContent = "E";
       btn.disabled = true;
-    } else if (cell) {
-      btn.textContent = cell.type === "line" ? (cell.rot % 180 === 0 ? "│" : "─") : "└";
-      btn.style.transform = `rotate(${cell.rot || 0}deg)`;
     } else {
-      btn.textContent = "+";
+      btn.textContent = pipeCellGlyph(cell);
     }
     btn.addEventListener("click", () => {
       pipeGame.selectedIndex = i;
       if (!(x === pipeGame.start.x && y === pipeGame.start.y) && !(x === pipeGame.end.x && y === pipeGame.end.y)) {
-        if (!pipeGame.cells[i]) {
-          pipeGame.cells[i] = { type: pipeGame.selectedType, rot: 0 };
-        }
+        const existing = pipeGame.cells[i];
+        const nextRot = existing && existing.type === pipeGame.selectedType ? existing.rot || 0 : 0;
+        pipeGame.cells[i] = { type: pipeGame.selectedType, rot: nextRot };
+      }
+      renderPipeGrid();
+    });
+    btn.addEventListener("contextmenu", (event) => {
+      event.preventDefault();
+      if (x === pipeGame.start.x && y === pipeGame.start.y) {
+        return;
+      }
+      if (x === pipeGame.end.x && y === pipeGame.end.y) {
+        return;
+      }
+      pipeGame.cells[i] = null;
+      if (pipeGame.selectedIndex === i) {
+        pipeGame.selectedIndex = null;
       }
       renderPipeGrid();
     });
@@ -1981,8 +2031,8 @@ function checkPipeSolved() {
     if (cur.x === pipeGame.end.x && cur.y === pipeGame.end.y) return true;
     const idx = cur.y * pipeGame.size + cur.x;
     let conns = [];
-    if (cur.x === pipeGame.start.x && cur.y === pipeGame.start.y) conns = ["right", "down"];
-    else if (cur.x === pipeGame.end.x && cur.y === pipeGame.end.y) conns = ["left", "up"];
+    if (cur.x === pipeGame.start.x && cur.y === pipeGame.start.y) conns = ["up", "down", "left", "right"];
+    else if (cur.x === pipeGame.end.x && cur.y === pipeGame.end.y) conns = ["up", "down", "left", "right"];
     else conns = pipeConnections(pipeGame.cells[idx]);
     for (const d of conns) {
       const [dx,dy] = dirs[d];
@@ -1990,8 +2040,8 @@ function checkPipeSolved() {
       if (nx<0||ny<0||nx>=pipeGame.size||ny>=pipeGame.size) continue;
       const nidx = ny*pipeGame.size+nx;
       let nconns=[];
-      if (nx===pipeGame.end.x&&ny===pipeGame.end.y) nconns=["left","up"];
-      else if (nx===pipeGame.start.x&&ny===pipeGame.start.y) nconns=["right","down"];
+      if (nx===pipeGame.end.x&&ny===pipeGame.end.y) nconns=["up","down","left","right"];
+      else if (nx===pipeGame.start.x&&ny===pipeGame.start.y) nconns=["up","down","left","right"];
       else nconns = pipeConnections(pipeGame.cells[nidx]);
       if (nconns.includes(opp[d])) queue.push({x:nx,y:ny,from:opp[d]});
     }
