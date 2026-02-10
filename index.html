@@ -1,0 +1,408 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Clicker96</title>
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <div class="boot-overlay" id="bootOverlay" data-state="boot">
+      <div class="boot-text">
+        <p>windows96 booting...</p>
+      </div>
+    </div>
+
+    <div class="title-overlay" id="titleOverlay">
+      <div class="title-card">
+        <h1>Clicker96</h1>
+        <p class="small">Save Slot: <span id="slotLabel">1</span> / 3</p>
+        <div class="title-buttons">
+          <button id="startButton">New Game</button>
+          <button id="switchSlotButton">Switch Save File</button>
+          <button id="settingsButton">Settings</button>
+          <button id="exitButton">Exit</button>
+        </div>
+        <p class="small" id="titleStatus">Select a save slot to begin.</p>
+      </div>
+    </div>
+
+    <div class="window hidden" id="settingsWindow">
+      <header class="window-header">
+        <span>Settings</span>
+        <button class="close" data-close="settingsWindow">✕</button>
+      </header>
+      <div class="window-body">
+        <p class="small">Save Slot: <span id="settingsSlotLabel">1</span></p>
+        <button class="danger" id="deleteSaveButton">Delete Save Data</button>
+        <p class="small" id="settingsStatus">Deletes current slot data.</p>
+      </div>
+    </div>
+
+    <div class="login-screen hidden" id="loginScreen">
+      <div class="login-card">
+        <div class="avatar"></div>
+        <p class="login-label">User: player01</p>
+        <input
+          type="password"
+          id="passwordInput"
+          maxlength="25"
+          placeholder="Password (123456)"
+        />
+        <button id="loginButton">Login</button>
+        <p class="small" id="loginStatus">Enter password to continue.</p>
+      </div>
+    </div>
+
+    <main class="desktop hidden" id="desktop">
+      <header class="taskbar">
+        <span>Windows96</span>
+        <div class="taskbar-windows" id="taskbarWindows"></div>
+        <span class="taskbar-right">
+          <span id="moneyDisplay">$0.00</span>
+          <span id="clock"></span>
+        </span>
+      </header>
+
+      <div class="decorations-layer" id="decorationsLayer"></div>
+
+      <section class="icons">
+        <button class="icon" id="mailIcon" data-deletable="true">
+          <span class="icon-image mail">
+            <span class="badge hidden" id="mailBadge">1</span>
+          </span>
+          Mail
+        </button>
+        <button class="icon" id="internetIcon" data-deletable="true">
+          <span class="icon-image internet"></span>
+          Internet
+        </button>
+        <button class="icon hidden" id="casinoIcon" data-deletable="true">
+          <span class="icon-image casino"></span>
+          Casino
+        </button>
+        <button class="icon hidden" id="downloadsIcon" data-deletable="true">
+          <span class="icon-image folder"></span>
+          Downloads
+        </button>
+        <button class="icon hidden" id="clickerIcon" data-deletable="true">
+          <span class="icon-image clicker"></span>
+          Clicker96
+        </button>
+        <button class="icon hidden" id="jukeboxIcon" data-deletable="true">
+          <span class="icon-image jukebox"></span>
+          Jukebox
+        </button>
+        <button class="icon" id="desktopSettingsIcon">
+          <span class="icon-image cog"></span>
+          Settings
+        </button>
+        <button class="icon" id="trashIcon">
+          <span class="icon-image trash"></span>
+          Trash
+        </button>
+      </section>
+
+      <div class="window hidden" id="mailWindow">
+        <header class="window-header">
+          <span>Mail - Inbox</span>
+          <button class="close" data-close="mailWindow">✕</button>
+        </header>
+        <div class="window-body">
+          <p class="email-subject">From: <strong id="mailSender">Old Friend</strong></p>
+          <p class="email-body" id="mailBody">
+            Check out this game I made. It's a little suspicious, but it works. The zip is attached.
+          </p>
+          <button class="attachment" id="downloadAttachment">📎 clicker96.zip</button>
+          <button class="attachment hidden" id="houseAttachment">🎲 TheHouse.exe</button>
+        </div>
+      </div>
+
+      <div class="window hidden" id="downloadWindow">
+        <header class="window-header">
+          <span>Downloader</span>
+          <button class="close" data-close="downloadWindow">✕</button>
+        </header>
+        <div class="window-body">
+          <p id="downloadStatus">Preparing download...</p>
+          <div class="progress-bar">
+            <div class="progress" id="downloadProgress"></div>
+          </div>
+          <button class="retry hidden" id="retryDownload">Retry</button>
+        </div>
+      </div>
+
+      <div class="window hidden" id="explorerWindow">
+        <header class="window-header">
+          <span>Windows Explorer - Downloads</span>
+          <button class="close" data-close="explorerWindow">✕</button>
+        </header>
+        <div class="window-body">
+          <ul class="file-list" id="downloadList"></ul>
+        </div>
+      </div>
+
+      <div class="window hidden" id="zipWindow">
+        <header class="window-header">
+          <span>Windows Explorer - clicker96.zip</span>
+          <button class="close" data-close="zipWindow">✕</button>
+        </header>
+        <div class="window-body">
+          <p class="small">Contents:</p>
+          <ul class="file-list">
+            <li>
+              <button class="file" id="installerFile">
+                <span class="file-icon exe"></span>
+                Clicker96Installer.exe
+              </button>
+            </li>
+          </ul>
+        </div>
+      </div>
+
+      <div class="window hidden" id="installerWindow">
+        <header class="window-header">
+          <span>Installer</span>
+          <button class="close" data-close="installerWindow">✕</button>
+        </header>
+        <div class="window-body">
+          <p>Installing Clicker96...</p>
+          <div class="progress-bar">
+            <div class="progress" id="installProgress"></div>
+          </div>
+          <p class="small" id="installStatus">Writing files to desktop.</p>
+        </div>
+      </div>
+
+      <div class="window hidden" id="clickerWindow" data-window-type="clicker">
+        <header class="window-header">
+          <span>Clicker96</span>
+          <button class="close" data-close="clickerWindow">✕</button>
+        </header>
+        <div class="window-body">
+          <p class="estimate">
+            Estimate: <span class="time-estimate" data-clicker="estimate">~4m 47s</span>
+          </p>
+          <div class="progress-bar large clickable clicker-bar" data-clicker="bar">
+            <div class="progress clicker-progress" data-clicker="progress"></div>
+          </div>
+          <p class="small">Click the bar to nudge it faster.</p>
+        </div>
+      </div>
+
+      <div class="window hidden" id="internetWindow">
+        <header class="window-header">
+          <span>Internet</span>
+          <button class="close" data-close="internetWindow">✕</button>
+        </header>
+        <div class="window-body">
+          <p class="small">Marketplace</p>
+          <div class="tab-bar" id="shopTabs">
+            <button class="tab active" data-tab="upgrades">Upgrades</button>
+            <button class="tab" data-tab="cosmetics">Decorations</button>
+            <button class="tab" data-tab="songs">Songs</button>
+          </div>
+          <div class="tab-content" data-tab-content="upgrades">
+            <p class="small">Improve Clicker96 performance and payout.</p>
+            <ul class="upgrade-list">
+              <li>
+                <div>
+                  <strong>Estimator Tweaks</strong>
+                  <p class="small">Improve time estimate accuracy</p>
+                  <p class="small" id="level-estimator">LVL 0/3</p>
+                </div>
+                <button class="retry upgrade" data-upgrade="estimator" data-cost="1">Buy - $1</button>
+              </li>
+              <li>
+                <div>
+                  <strong>Bar Tuner I</strong>
+                  <p class="small">Click bar speed +5%</p>
+                  <p class="small" id="level-bar-tuner">LVL 0/∞</p>
+                </div>
+                <button class="retry upgrade" data-upgrade="bar-tuner" data-cost="1">Buy - $1</button>
+              </li>
+              <li>
+                <div>
+                  <strong>Auto-Click Harness</strong>
+                  <p class="small">Automates small bar nudges</p>
+                  <p class="small" id="level-auto-click">LVL 0/5</p>
+                </div>
+                <button class="retry upgrade" data-upgrade="auto-click" data-cost="3">Buy - $3</button>
+              </li>
+              <li>
+                <div>
+                  <strong>Multi-Window Buffer</strong>
+                  <p class="small">Run 2 Clicker96 windows at once</p>
+                  <p class="small" id="level-multi-window">LVL 0/∞</p>
+                </div>
+                <button class="retry upgrade" data-upgrade="multi-window" data-cost="6">Buy - $6</button>
+              </li>
+              <li>
+                <div>
+                  <strong>Revenue Multiplier</strong>
+                  <p class="small">Progress bar payout +$1 per level</p>
+                  <p class="small" id="level-payout-boost">LVL 0/∞</p>
+                </div>
+                <button class="retry upgrade" data-upgrade="payout-boost" data-cost="5">Buy - $5</button>
+              </li>
+              <li>
+                <div>
+                  <strong>Chrono Stabilizer</strong>
+                  <p class="small">Reduce bar time by 10s per level</p>
+                  <p class="small" id="level-time-reducer">LVL 0/25</p>
+                </div>
+                <button class="retry upgrade" data-upgrade="time-reducer" data-cost="20">
+                  Buy - $20
+                </button>
+              </li>
+              <li>
+                <div>
+                  <strong id="doubleTapName">Double-Tap</strong>
+                  <p class="small">Extra taps per click (max Penta-Tap)</p>
+                  <p class="small" id="level-double-tap">LVL 0/5</p>
+                </div>
+                <button class="retry upgrade" data-upgrade="double-tap" data-cost="120">
+                  Buy - $120
+                </button>
+              </li>
+            </ul>
+          </div>
+          <div class="tab-content hidden" data-tab-content="cosmetics">
+            <p class="small">Purely cosmetic desktop decorations.</p>
+            <ul class="cosmetic-list" id="cosmeticShopList"></ul>
+            <button class="retry" id="openCosmetics">Open Cosmetics Shelf</button>
+          </div>
+          <div class="tab-content hidden" data-tab-content="songs">
+            <p class="small">Unlock discs for your jukebox.</p>
+            <ul class="cosmetic-list" id="songShopList"></ul>
+          </div>
+        </div>
+      </div>
+
+      <div class="window hidden" id="jukeboxWindow">
+        <header class="window-header">
+          <span>Jukebox</span>
+          <button class="close" data-close="jukeboxWindow">✕</button>
+        </header>
+        <div class="window-body">
+          <p class="small">Now Playing: <span id="jukeboxNowPlaying">None</span></p>
+          <div class="jukebox-visual">
+            <div class="disc" id="jukeboxDisc"></div>
+            <div class="jukebox-time"><span id="jukeboxTimeCurrent">0:00</span> / <span id="jukeboxTimeDuration">0:00</span></div>
+            <div class="progress-bar"><div class="progress" id="jukeboxProgress"></div></div>
+          </div>
+          <ul class="cosmetic-list" id="jukeboxTrackList"></ul>
+          <div class="confirm-actions">
+            <button id="jukeboxStop">Stop</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="window hidden" id="desktopSettingsWindow">
+        <header class="window-header">
+          <span>Desktop Settings</span>
+          <button class="close" data-close="desktopSettingsWindow">✕</button>
+        </header>
+        <div class="window-body desktop-settings-layout">
+          <aside class="settings-sidebar" id="desktopSettingsTabs">
+            <button class="tab active" data-settings-tab="audio">Audio</button>
+            <button class="tab" data-settings-tab="graphics">Graphics</button>
+            <button class="tab" data-settings-tab="achievements">Achievements</button>
+            <button id="logoutButton" class="logout-button">Logout</button>
+          </aside>
+          <section class="settings-content">
+            <div class="tab-content" data-settings-content="audio">
+              <p class="small" id="audioStatus">Master audio enabled.</p>
+              <div class="confirm-actions">
+                <button id="toggleAudioButton">Toggle Audio</button>
+              </div>
+            </div>
+            <div class="tab-content hidden" data-settings-content="graphics">
+              <p class="small">Future graphics options go here (filters, glow, CRT, etc.).</p>
+            </div>
+            <div class="tab-content hidden" data-settings-content="achievements">
+              <p class="small">Unlocked achievements show full details.</p>
+              <ul class="achievement-list" id="achievementList"></ul>
+            </div>
+          </section>
+        </div>
+      </div>
+
+      <div class="window hidden" id="cosmeticsWindow">
+        <header class="window-header">
+          <span>Cosmetics</span>
+          <button class="close" data-close="cosmeticsWindow">✕</button>
+        </header>
+        <div class="window-body">
+          <p class="small">Place or remove your purchased decor.</p>
+          <ul class="cosmetic-list" id="ownedCosmetics"></ul>
+        </div>
+      </div>
+
+      <div class="window hidden" id="trashWindow">
+        <header class="window-header">
+          <span>Trash</span>
+          <button class="close" data-close="trashWindow">✕</button>
+        </header>
+        <div class="window-body">
+          <ul class="file-list" id="trashList"></ul>
+          <p class="small" id="trashStatus">Right-click the Trash icon to empty.</p>
+          <button class="retry" id="restoreSelectedApp">Restore Last App</button>
+        </div>
+      </div>
+
+      <div class="window hidden" id="confirmCloseWindow">
+        <header class="window-header">
+          <span>Close Clicker96?</span>
+          <button class="close" data-close="confirmCloseWindow">✕</button>
+        </header>
+        <div class="window-body">
+          <p class="small">Closing will reset the current progress.</p>
+          <div class="confirm-actions">
+            <button id="confirmCloseYes">Yes</button>
+            <button id="confirmCloseNo">No</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="window hidden" id="casinoWindow">
+        <header class="window-header">
+          <span>Casino</span>
+          <button class="close" data-close="casinoWindow">✕</button>
+        </header>
+        <div class="window-body">
+          <p class="small">Bet amount:</p>
+          <input type="number" id="casinoBetInput" min="1" step="1" />
+          <div class="confirm-actions">
+            <button id="casinoCoinflip">50/50</button>
+            <button id="casinoBlackjack">Blackjack</button>
+            <button id="casinoHit" class="hidden">Hit</button>
+            <button id="casinoStand" class="hidden">Stand</button>
+          </div>
+          <p class="small" id="casinoCards"></p>
+          <p class="small" id="casinoStatus">Pick a game to start.</p>
+        </div>
+      </div>
+
+    </main>
+
+    <div class="combo-meter hidden" id="comboMeter">
+      <div class="combo-label">Combo</div>
+      <div class="combo-value" id="comboValue">1.00x</div>
+      <div class="combo-bar">
+        <div class="combo-fill" id="comboFill"></div>
+      </div>
+    </div>
+
+    <div class="toast hidden" id="toast">
+      <div class="toast-title" id="toastTitle"></div>
+      <div class="toast-body" id="toastBody"></div>
+    </div>
+
+    <div class="context-menu hidden" id="iconContextMenu">
+      <button id="deleteIconButton">Delete App</button>
+    </div>
+
+    <script src="script.js"></script>
+  </body>
+</html>
