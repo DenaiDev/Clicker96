@@ -7,3 +7,10 @@ artifacts/
 # Local game data exports
 gamedata/
 gamedata.json
+
+# Cypress
+cypress/
+cypress.config.js
+node_modules/
+package-lock.json
+package.json
