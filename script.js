@@ -846,6 +846,38 @@ function loadSlot() {
   return true;
 }
 
+
+function resetDesktopForNewSlot() {
+  document.querySelectorAll(".icon.clicker-clone, .icon.note-icon").forEach((icon) => {
+    icon.remove();
+  });
+  Object.keys(iconDefaults).forEach((id) => {
+    const icon = document.getElementById(id);
+    if (!icon) {
+      return;
+    }
+    const defaults = iconDefaults[id] || { x: 0, y: 0 };
+    setIconPosition(icon, defaults.x, defaults.y);
+    let hidden = false;
+    if (id === "downloadsIcon") {
+      hidden = downloads.length === 0;
+    }
+    if (id === "casinoIcon") {
+      hidden = mailStage < 3;
+    }
+    if (id === "clickerIcon") {
+      hidden = true;
+    }
+    if (id === "antivirusIcon") {
+      hidden = upgrades.antivirus < 1;
+    }
+    if (id === "jukeboxIcon") {
+      hidden = unlockedSongs.length === 0;
+    }
+    icon.classList.toggle("hidden", hidden);
+  });
+}
+
 function saveCurrentSlot() {
   const data = {
     totalMoney,
@@ -898,6 +930,7 @@ function startGameAction() {
     audioEnabled = true;
     downloadsIcon.classList.add("hidden");
     updateMoneyDisplay();
+    resetDesktopForNewSlot();
     saveCurrentSlot();
   } else {
     loadSlot();
