@@ -43,6 +43,7 @@ const settingsWindow = document.getElementById("settingsWindow");
 const settingsSlotLabel = document.getElementById("settingsSlotLabel");
 const deleteSaveButton = document.getElementById("deleteSaveButton");
 const settingsStatus = document.getElementById("settingsStatus");
+const mainSettingsTabs = document.getElementById("mainSettingsTabs");
 const trashIcon = document.getElementById("trashIcon");
 const trashWindow = document.getElementById("trashWindow");
 const trashList = document.getElementById("trashList");
@@ -76,11 +77,14 @@ const desktopSettingsIcon = document.getElementById("desktopSettingsIcon");
 const desktopSettingsWindow = document.getElementById("desktopSettingsWindow");
 const audioStatus = document.getElementById("audioStatus");
 const toggleAudioButton = document.getElementById("toggleAudioButton");
+const mainMasterVolumeInput = document.getElementById("mainMasterVolumeInput");
+const mainBgVolumeInput = document.getElementById("mainBgVolumeInput");
+const mainSfxVolumeInput = document.getElementById("mainSfxVolumeInput");
 const logoutButton = document.getElementById("logoutButton");
 const masterVolumeInput = document.getElementById("masterVolumeInput");
 const bgVolumeInput = document.getElementById("bgVolumeInput");
 const sfxVolumeInput = document.getElementById("sfxVolumeInput");
-const openAchievementsWindow = document.getElementById("openAchievementsWindow");
+const openAchievementsButtons = document.querySelectorAll("[data-open-achievements]");
 const achievementsWindow = document.getElementById("achievementsWindow");
 const antivirusIcon = document.getElementById("antivirusIcon");
 const antivirusWindow = document.getElementById("antivirusWindow");
@@ -2357,31 +2361,37 @@ function setupShopTabs() {
   setActiveShopTab(active ? active.dataset.tab : "upgrades");
 }
 
-function setupDesktopSettingsTabs() {
-  if (!desktopSettingsTabs) {
+function setupSettingsTabGroup(sidebarEl, tabAttr, panelAttr) {
+  if (!sidebarEl) {
     return;
   }
-  desktopSettingsTabs.querySelectorAll(".tab").forEach((tab) => {
+  const tabs = sidebarEl.querySelectorAll(`.tab[${tabAttr}]`);
+  const panels = sidebarEl.closest(".window-body")?.querySelectorAll(`[${panelAttr}]`) || [];
+  tabs.forEach((tab) => {
     tab.addEventListener("click", () => {
-      desktopSettingsTabs.querySelectorAll(".tab").forEach((other) => {
+      const target = tab.getAttribute(tabAttr);
+      tabs.forEach((other) => {
         other.classList.toggle("active", other === tab);
       });
-      document.querySelectorAll("[data-settings-content]").forEach((panel) => {
-        panel.classList.toggle("hidden", panel.dataset.settingsContent !== tab.dataset.settingsTab);
+      panels.forEach((panel) => {
+        panel.classList.toggle("hidden", panel.getAttribute(panelAttr) !== target);
       });
     });
   });
 }
 
 function updateAudioStatus() {
-  if (!audioStatus) {
-    return;
-  }
   const state = audioEnabled ? "enabled" : "muted";
-  audioStatus.textContent = `Audio ${state} · Master ${(masterVolume * 100).toFixed(0)}% · BG ${(musicVolume * 100).toFixed(0)}% · SFX ${(sfxVolume * 100).toFixed(0)}%`;
+  const text = `Audio ${state} · Master ${(masterVolume * 100).toFixed(0)}% · BG ${(musicVolume * 100).toFixed(0)}% · SFX ${(sfxVolume * 100).toFixed(0)}%`;
+  document.querySelectorAll(".audio-status").forEach((el) => {
+    el.textContent = text;
+  });
   if (masterVolumeInput) masterVolumeInput.value = String(masterVolume.toFixed(2));
   if (bgVolumeInput) bgVolumeInput.value = String(musicVolume.toFixed(2));
   if (sfxVolumeInput) sfxVolumeInput.value = String(sfxVolume.toFixed(2));
+  if (mainMasterVolumeInput) mainMasterVolumeInput.value = String(masterVolume.toFixed(2));
+  if (mainBgVolumeInput) mainBgVolumeInput.value = String(musicVolume.toFixed(2));
+  if (mainSfxVolumeInput) mainSfxVolumeInput.value = String(sfxVolume.toFixed(2));
 }
 
 function renderSongShop() {
@@ -3021,8 +3031,8 @@ if (jukeboxStop) {
   });
 }
 
-if (toggleAudioButton) {
-  toggleAudioButton.addEventListener("click", () => {
+document.querySelectorAll("[data-toggle-audio]").forEach((button) => {
+  button.addEventListener("click", () => {
     audioEnabled = !audioEnabled;
     updateAudioStatus();
     if (!audioEnabled) {
@@ -3030,7 +3040,7 @@ if (toggleAudioButton) {
     }
     saveCurrentSlot();
   });
-}
+});
 
 if (logoutButton) {
   logoutButton.addEventListener("click", () => {
@@ -3050,9 +3060,11 @@ if (loginBackButton) {
   });
 }
 
-if (openAchievementsWindow && achievementsWindow) {
-  openAchievementsWindow.addEventListener("click", () => {
-    showWindow(achievementsWindow);
+if (openAchievementsButtons.length > 0 && achievementsWindow) {
+  openAchievementsButtons.forEach((button) => {
+    button.addEventListener("click", () => {
+      showWindow(achievementsWindow);
+    });
   });
 }
 
@@ -3083,6 +3095,15 @@ if (bgVolumeInput) {
 }
 if (sfxVolumeInput) {
   sfxVolumeInput.addEventListener("change", () => setVolume("sfx", sfxVolumeInput.value));
+}
+if (mainMasterVolumeInput) {
+  mainMasterVolumeInput.addEventListener("change", () => setVolume("master", mainMasterVolumeInput.value));
+}
+if (mainBgVolumeInput) {
+  mainBgVolumeInput.addEventListener("change", () => setVolume("bg", mainBgVolumeInput.value));
+}
+if (mainSfxVolumeInput) {
+  mainSfxVolumeInput.addEventListener("change", () => setVolume("sfx", mainSfxVolumeInput.value));
 }
 
 if (antivirusIcon) {
@@ -3257,5 +3278,6 @@ renderAchievements();
 renderSongShop();
 renderJukeboxTracks();
 setupShopTabs();
-setupDesktopSettingsTabs();
+setupSettingsTabGroup(desktopSettingsTabs, "data-settings-tab", "data-settings-content");
+setupSettingsTabGroup(mainSettingsTabs, "data-main-settings-tab", "data-main-settings-content");
 updateAudioStatus();

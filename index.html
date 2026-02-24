@@ -27,15 +27,42 @@
       </div>
     </div>
 
-    <div class="window hidden" id="settingsWindow">
+    <div class="window hidden settings-window" id="settingsWindow">
       <header class="window-header">
         <span>Settings</span>
         <button class="close" data-close="settingsWindow">✕</button>
       </header>
-      <div class="window-body">
-        <p class="small">Save Slot: <span id="settingsSlotLabel">1</span></p>
-        <button class="danger" id="deleteSaveButton">Delete Save Data</button>
-        <p class="small" id="settingsStatus">Deletes current slot data.</p>
+      <div class="window-body desktop-settings-layout">
+        <aside class="settings-sidebar" id="mainSettingsTabs">
+          <button class="tab active" data-main-settings-tab="audio">Audio</button>
+          <button class="tab" data-main-settings-tab="graphics">Graphics</button>
+          <button class="tab" data-main-settings-tab="achievements">Achievements</button>
+        </aside>
+        <section class="settings-content">
+          <div class="tab-content" data-main-settings-content="audio">
+            <p class="small audio-status">Master audio enabled.</p>
+            <div class="audio-controls">
+              <div class="audio-row"><span>Master</span><button data-audio-step="master" data-step="-0.1">-</button><input id="mainMasterVolumeInput" type="number" min="0" max="1" step="0.05" value="1" /><button data-audio-step="master" data-step="0.1">+</button></div>
+              <div class="audio-row"><span>BG</span><button data-audio-step="bg" data-step="-0.1">-</button><input id="mainBgVolumeInput" type="number" min="0" max="1" step="0.05" value="0.5" /><button data-audio-step="bg" data-step="0.1">+</button></div>
+              <div class="audio-row"><span>SFX</span><button data-audio-step="sfx" data-step="-0.1">-</button><input id="mainSfxVolumeInput" type="number" min="0" max="1" step="0.05" value="0.4" /><button data-audio-step="sfx" data-step="0.1">+</button></div>
+            </div>
+            <div class="confirm-actions">
+              <button data-toggle-audio="true">Toggle Audio</button>
+            </div>
+          </div>
+          <div class="tab-content hidden" data-main-settings-content="graphics">
+            <p class="small">Future graphics options go here (filters, glow, CRT, etc.).</p>
+          </div>
+          <div class="tab-content hidden" data-main-settings-content="achievements">
+            <p class="small">Open the dedicated achievement viewer for easier browsing.</p>
+            <button data-open-achievements="true">Open Achievement Viewer</button>
+          </div>
+          <div class="settings-save-box">
+            <p class="small">Save Slot: <span id="settingsSlotLabel">1</span></p>
+            <button class="danger" id="deleteSaveButton">Delete Save Data</button>
+            <p class="small" id="settingsStatus">Deletes current slot data.</p>
+          </div>
+        </section>
       </div>
     </div>
 
@@ -333,14 +360,14 @@
           </aside>
           <section class="settings-content">
             <div class="tab-content" data-settings-content="audio">
-              <p class="small" id="audioStatus">Master audio enabled.</p>
+              <p class="small" class="audio-status" id="audioStatus">Master audio enabled.</p>
               <div class="audio-controls">
                 <div class="audio-row"><span>Master</span><button data-audio-step="master" data-step="-0.1">-</button><input id="masterVolumeInput" type="number" min="0" max="1" step="0.05" value="1" /><button data-audio-step="master" data-step="0.1">+</button></div>
                 <div class="audio-row"><span>BG</span><button data-audio-step="bg" data-step="-0.1">-</button><input id="bgVolumeInput" type="number" min="0" max="1" step="0.05" value="0.5" /><button data-audio-step="bg" data-step="0.1">+</button></div>
                 <div class="audio-row"><span>SFX</span><button data-audio-step="sfx" data-step="-0.1">-</button><input id="sfxVolumeInput" type="number" min="0" max="1" step="0.05" value="0.4" /><button data-audio-step="sfx" data-step="0.1">+</button></div>
               </div>
               <div class="confirm-actions">
-                <button id="toggleAudioButton">Toggle Audio</button>
+                <button id="toggleAudioButton" data-toggle-audio="true">Toggle Audio</button>
               </div>
             </div>
             <div class="tab-content hidden" data-settings-content="graphics">
@@ -348,7 +375,7 @@
             </div>
             <div class="tab-content hidden" data-settings-content="achievements">
               <p class="small">Open the dedicated achievement viewer for easier browsing.</p>
-              <button id="openAchievementsWindow">Open Achievement Viewer</button>
+              <button id="openAchievementsWindow" data-open-achievements="true">Open Achievement Viewer</button>
             </div>
           </section>
         </div>
@@ -408,6 +435,7 @@
           <p class="small" id="pipeStatus">Connect Start to End before time runs out.</p>
         </div>
       </div>
+
       
       <div class="window hidden" id="notepadWindow">
         <header class="window-header">
@@ -427,7 +455,7 @@
         <div class="window-body">
           <ul class="file-list" id="trashList"></ul>
           <p class="small" id="trashStatus">Right-click the Trash icon to empty.</p>
-        </div>
+                  </div>
       </div>
 
       <div class="window hidden" id="confirmCloseWindow">

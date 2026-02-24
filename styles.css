@@ -790,3 +790,10 @@ body.cosmetic-sunset {
 .icon.refresh-flash {
   opacity: 0;
 }
+
+
+.settings-save-box {
+  margin-top: 0.8rem;
+  border-top: 1px solid #2f3f5e;
+  padding-top: 0.8rem;
+}
