@@ -17,3 +17,7 @@ package.json
 
 # Markdown
 *.md
+
+# Spec-kit
+.specify/
+.vscode/
